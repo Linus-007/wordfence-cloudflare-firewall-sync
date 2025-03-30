@@ -5,6 +5,8 @@
  * Version: 1.0.0
  * Author: Mike Orozco
  * Author URI: https://mikeorozco.dev
+ * Text Domain: wordpress-cloudflare-sync
+ * Domain Path: /languages
  */
 
 declare(strict_types=1);

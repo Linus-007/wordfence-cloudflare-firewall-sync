@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WPCF\FirewallSync\Admin;
 
+use WPCF\FirewallSync\Plugin;
 use WPCF\FirewallSync\Cloudflare\Client;
 use WPCF\FirewallSync\Services\SyncScheduler;
 use WPCF\FirewallSync\Services\Reconciler;
@@ -20,25 +21,25 @@ final class Fields {
   }
 
   public static function register_settings(): void {
-    register_setting('firewall_sync_options_group', 'firwall_sync_options', [
+    register_setting('firewall_sync_options_group', 'firewall_sync_options', [
       'type' => 'array',
       'sanitize_callback' => [self::class, 'sanitize'],
       'default' => []
     ]);
 
     add_settings_section(
-      'firwall_sync_main_section',
-      'Cloudflare Configuration',
+      'firewall_sync_main_section',
+      __('Cloudflare Configuration', Plugin::get_text_domain()),
       null,
       'firewall-sync-settings',
     );
 
     self::add_text_field('cloudflare_api_token', 'Cloudflare API Token');
-    self::add_text_field('cloudflare_zone_id', __('Cloudflare Zone ID', 'wordfence-cloudflare-sync'));
-    self::add_text_field('sync_interval', __('Sync Interval (minutes)', 'wordfence-cloudflare-sync'), 'e.g., 15, 30, 60');
-    self::add_text_field('manual_block_ip', __('Manually Block IP', 'wordfence-cloudflare-sync'));
-    self::add_button_field('validate_cf_credentials', __('Validate Cloudflare Credentials', 'wordfence-cloudflare-sync'));
-    self::add_button_field('test_block', __('Run Test Block', 'wordfence-cloudflare-sync'));
+    self::add_text_field('cloudflare_zone_id', __('Cloudflare Zone ID', Plugin::get_text_domain()));
+    self::add_text_field('sync_interval', __('Sync Interval (minutes)', Plugin::get_text_domain()), 'e.g., 15, 30, 60');
+    self::add_text_field('manual_block_ip', __('Manually Block IP', Plugin::get_text_domain()));
+    self::add_button_field('validate_cf_credentials', __('Validate Cloudflare Credentials', Plugin::get_text_domain()));
+    self::add_button_field('test_block', __('Run Test Block', Plugin::get_text_domain()));
   }
 
   private static function add_text_field(string $name, string $label, string $placeholder = ''): void {
@@ -65,8 +66,16 @@ final class Fields {
     add_settings_field(
       $name,
       $label,
-      function () use ($name): void {
-        submit_button($label, 'secondary', 'firewall_sync_action_' . $name, false);
+      function () use ($name, $label): void {
+        $url = admin_url('admin-post.php');
+        $action = 'firewall_sync_' . $name;
+        printf(
+          '<form method="post" action="%1$s" style="margin:0;">%2$s<input type="hidden" name="action" value="%3$s">%4$s</form>',
+          esc_url($url),
+          wp_nonce_field($action, $action . '_nonce', true, false),
+          esc_attr($action),
+          get_submit_button($label, 'secondary', $action, false)
+        );
       },
       'firewall-sync-settings',
       'firewall_sync_main_section'
@@ -90,8 +99,8 @@ final class Fields {
         'firewall_sync_messages',
         'manual_block',
         $success
-          ? __('Successfully blocked IP', 'wordfence-cloudflare-sync') . ": {$sanitized['manual_block_ip']}"
-          : __('Failed to block IP', 'wordfence-cloudflare-sync') . ": {$sanitized['manual_block_ip']}",
+          ? __('Successfully blocked IP', Plugin::get_text_domain()) . ": {$sanitized['manual_block_ip']}"
+          : __('Failed to block IP', Plugin::get_text_domain()) . ": {$sanitized['manual_block_ip']}",
         $success ? 'updated' : 'error'
       );
 
@@ -103,7 +112,7 @@ final class Fields {
 
   public static function handle_validate(): void {
     if (!current_user_can('manage_options')) {
-      wp_die(__('You do not have sufficient permissions to access this page.', 'wordfence-cloudflare-sync'));
+      wp_die(__('You do not have sufficient permissions to access this page.', Plugin::get_text_domain()));
     }
 
     check_admin_referer('firewall_sync_validate_cf_credentials_nonce');
@@ -114,8 +123,8 @@ final class Fields {
 
     $result = $client->validate();
     $msg = $result
-      ? __('Cloudflare credentials validated successfully', 'wordfence-cloudflare-sync')
-      : __('Failed to validate Cloudflare credentials', 'wordfence-cloudflare-sync');
+      ? __('Cloudflare credentials validated successfully', Plugin::get_text_domain())
+      : __('Failed to validate Cloudflare credentials', Plugin::get_text_domain());
 
     add_settings_error('firewall_sync_messages', 'validate', $msg, $result ? 'updated' : 'error');
     wp_redirect(admin_url('admin.php?page=firewall-sync-settings'));
@@ -158,8 +167,8 @@ final class Fields {
         'firewall_sync_messages',
         'sync_now',
         $success
-          ? __('Sync completed successfully.', 'wordfence-cloudflare-sync')
-          : __('Sync failed.', 'wordfence-cloudflare-sync'),
+          ? __('Sync completed successfully.', Plugin::get_text_domain())
+          : __('Sync failed.', Plugin::get_text_domain()),
         $success ? 'updated' : 'error'
     );
 
@@ -182,7 +191,7 @@ final class Fields {
 
     SyncScheduler::cleanup_expired($client);
 
-    add_settings_error('firewall_sync_messages', 'cleanup_now', __('Cleanup completed successfully.', 'wordfence-cloudflare-sync'), 'updated');
+    add_settings_error('firewall_sync_messages', 'cleanup_now', __('Cleanup completed successfully.', Plugin::get_text_domain()), 'updated');
     wp_redirect(admin_url('admin.php?page=firewall-sync-settings'));
 
     exit;

@@ -13,15 +13,17 @@ use WPCF\FirewallSync\Services\MigrationManager;
 
 final class Plugin {
   public static string $VERSION;
+  public static string $TEXTDOMAIN;
 
   public static function init(): void {
     self::get_version();
+    self::get_text_domain();
     self::define_constants();
     self::load_admin();
     self::load_services();
 
     load_plugin_textdomain(
-      'wordfence-cloudflare-sync',
+      self::get_text_domain(),
       false,
       dirname(plugin_basename(__DIR__ . '/../index.php')) . '/languages'
     );
@@ -35,6 +37,16 @@ final class Plugin {
     }
 
     return self::$VERSION;
+  }
+
+  public static function get_text_domain(): string {
+    if (!isset(self::$TEXTDOMAIN)) {
+      $plugin_file = plugin_dir_path(__DIR__ . '/../index.php') . 'index.php';
+      $plugin_data = get_file_data($plugin_file, ['Text Domain' => 'Text Domain']);
+      self::$TEXTDOMAIN = $plugin_data['Text Domain'];
+    }
+
+    return self::$TEXTDOMAIN;
   }
 
   private static function define_constants(): void {
@@ -55,6 +67,8 @@ final class Plugin {
     if (is_admin()) {
       Settings::register();
       Fields::register();
+    } else {
+      echo "Not an admin!";
     }
   }
 
@@ -114,11 +128,5 @@ final class Plugin {
 
     SyncScheduler::cleanup_expired($client);
     SyncScheduler::deactivate();
-  }
-
-  public static function run_migrations(?string $from_version): void {
-    if ($from_version === null || version_compare($from_version, '1.0.0', '<')) {
-      // Future migration logic here...
-    }
   }
 }

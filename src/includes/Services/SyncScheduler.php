@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WPCF\FirewallSync\Services;
 
+use WPCF\FirewallSync\Plugin;
 use WPCF\FirewallSync\Cloudflare\Client;
 use WPCF\FirewallSync\Services\BlockLogger;
 
@@ -32,12 +33,12 @@ final class SyncScheduler {
   public static function custom_intervals(array $schedules): array {
     $schedules['every_5_minutes'] = [
       'interval' => 300,
-      'display' => __('Every 5 Minutes', 'wordfence-cloudflare-sync')
+      'display' => __('Every 5 Minutes', Plugin::get_text_domain())
     ];
 
     $schedules['every_15_minutes'] = [
       'interval' => 900,
-      'display' => __('Every 15 Minutes', 'wordfence-cloudflare-sync')
+      'display' => __('Every 15 Minutes', Plugin::get_text_domain())
     ];
 
     return $schedules;
@@ -62,7 +63,7 @@ final class SyncScheduler {
 
     foreach ($blocks as $block) {
       $ip = $block['ip'] ?? null;
-      $reason = $block['reason'] ?? __('Unknown', 'wordfence-cloudflare-sync');
+      $reason = $block['reason'] ?? __('Unknown', Plugin::get_text_domain());
       $expiration = (int) ($block['expirationUnix'] ?? 0);
       $is_permanent = $block['permanent'] ?? false;
 

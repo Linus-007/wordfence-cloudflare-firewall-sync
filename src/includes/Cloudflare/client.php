@@ -6,6 +6,7 @@ namespace WPCF\FirewallSync\Cloudflare;
 
 use WP_Error;
 use WP_Http;
+use WPCF\FirewallSync\Plugin;
 
 final class Client {
   private string $token;
@@ -39,7 +40,7 @@ final class Client {
         'target' => 'ip',
         'value' => $ip,
       ],
-      'notes' => __('Wordfence Sync Block', 'wordfence-cloudflare-sync'),
+      'notes' => __('Wordfence Sync Block', Plugin::get_text_domain()),
     ];
 
     $response = wp_remote_post($url, [
@@ -133,7 +134,7 @@ final class Client {
             'target' => 'ip',
             'value' => $entry['ip']
           ],
-          'notes' => __('Wordfence Sync', 'wordfence-cloudflare-sync') . ': ' . ($entry['reason'] ?? __('Unknown', 'wordfence-cloudflare-sync'))
+          'notes' => __('Wordfence Sync', Plugin::get_text_domain()) . ': ' . ($entry['reason'] ?? __('Unknown', Plugin::get_text_domain()))
         ];
       }
 

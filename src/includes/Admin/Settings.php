@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WPCF\FirewallSync\Admin;
 
+use WPCF\FirewallSync\Plugin;
+
 final class Settings {
     public static function register(): void {
       add_action('admin_menu', [self::class, 'add_settings_page']);
@@ -11,8 +13,8 @@ final class Settings {
 
     public static function add_settings_page(): void {
       add_menu_page(
-        __('Firewall Sync Settings', 'wordfence-cloudflare-sync'),
-        __('Firewall Sync', 'wordfence-cloudflare-sync'),
+        __('Firewall Sync Settings', Plugin::get_text_domain()),
+        __('Firewall Sync', Plugin::get_text_domain()),
         'manage_options',
         'firewall-sync-settings',
         [self::class, 'render'],
@@ -28,9 +30,12 @@ final class Settings {
       $log_table->prepare_items();
 
       if ($last_sync) {
-        $last_sync_time = date('Y-m-d H:i:s', $last_sync);
+        $last_sync_time = date_i18n(
+          get_option('date_format') . ' ' . get_option('time_format'),
+          strtotime($last_sync)
+        );
       } else {
-        $last_sync_time = __('Never', 'wordfence-cloudflare-sync');
+        $last_sync_time = __('Never', Plugin::get_text_domain());
       }
       ?>
         <div class="wrap">
@@ -48,59 +53,58 @@ final class Settings {
 
           <hr>
 
-          <h2><?php __('Last Sync Time', 'wordpress-cloudflare-sync'); ?></h2>
+          <h2><?php echo esc_html(__('Last Sync Time', Plugin::get_text_domain())); ?></h2>
           <p><?php echo esc_html($last_sync_time); ?></p>
 
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top: 10px;">
             <?php wp_nonce_field('firewall_sync_now', 'firewall_sync_now_nonce'); ?>
             <input type="hidden" name="action" value="firewall_sync_now">
-            <?php submit_button(__('Sync Now', 'wordfence-cloudflare-sync'), 'primary', 'firewall_sync_now', false, ['disabled' => $sync_disabled]); ?>
+            <?php submit_button(__('Sync Now', Plugin::get_text_domain()), 'primary', 'firewall_sync_now', false, ['disabled' => $sync_disabled]); ?>
           </form>
 
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top: 10px;">
             <?php wp_nonce_field('firewall_sync_cleanup_now', 'firewall_sync_cleanup_now_nonce'); ?>
             <input type="hidden" name="action" value="firewall_sync_cleanup_now">
-            <?php submit_button('Run Cleanup Now', 'secondary', 'firewall_sync_cleanup_now', false); ?>
+            <?php submit_button(__('Run Cleanup Now', Plugin::get_text_domain()), 'secondary', 'firewall_sync_cleanup_now', false); ?>
           </form>
 
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top: 10px;">
             <?php wp_nonce_field('firewall_sync_reconcile', 'firewall_sync_reconcile_nonce'); ?>
             <input type="hidden" name="action" value="firewall_sync_reconcile">
-            <?php submit_button('Run Reconciliation', 'secondary', 'firewall_sync_reconcile', false); ?>
+            <?php submit_button(__('Run Reconciliation', Plugin::get_text_domain()), 'secondary', 'firewall_sync_reconcile', false); ?>
           </form>
 
           <details style="margin-top: 20px;">
             <summary style="font-size: 1.2em; cursor: pointer;">
-              <?php __('View Block Log', 'wordpress-cloudflare-sync'); ?>
+              <?php echo esc_html(__('View Block Log', Plugin::get_text_domain())); ?>
             </summary>
             <div style="margin-top: 10px;">
               <?php $log_table->display(); ?>
             </div>
           </details>
 
-          <?php if ($result = get_transient('firewall_sync_reconcile_result')) {
-            delete_transient('firewall_sync_reconcile_result');
+          <?php if ($result = get_transient('firewall_sync_reconcile_result')): ?>
+            <?php delete_transient('firewall_sync_reconcile_result'); ?>
 
-            echo '<h2>' . __('Reconciliation Results', 'wordfence-cloudflare-sync') . '</h2>';
+            <section>
+              <h2><?php echo esc_html(__('Reconciliation Results', Plugin::get_text_domain())); ?></h2>
+              <h3><?php echo esc_html(__('Missing in Cloudflare', Plugin::get_text_domain())); ?></h3>
+              
+              <ul>
+                <?php foreach ($result['missing_in_cf'] ?? [] as $ip): ?>
+                  <li><?php echo esc_html($ip); ?></li>
+                <?php endforeach; ?>
+              </ul>
 
-            echo '<h3>' . __('Missing in Cloudflare', 'wordfence-cloudflare-sync') . '</h3>';
-            echo '<ul>';
-
-            foreach ($result['missing_in_cf'] as $ip) {
-                echo '<li>' . esc_html($ip) . '</li>';
-            }
-
-            echo '</ul>';
-
-            echo '<h3>' . __('Orphaned in Cloudflare', 'wordfence-cloudflare-sync') . '</h3>';
-            echo '<ul>';
-
-            foreach ($result['orphaned_in_cf'] as $ip) {
-                echo '<li>' . esc_html($ip) . '</li>';
-            }
-
-            echo '</ul>';
-          } ?>
+              <h3><?php echo esc_html(__('Orphaned in Cloudflare', Plugin::get_text_domain())); ?></h3>
+              
+              <ul>
+                <?php foreach ($result['orphaned_in_cf'] as $ip): ?>
+                  <li><?php echo esc_html($ip); ?></li>
+                <?php endforeach; ?>
+              </ul>
+                </section>
+          <?php endif; ?>
         </div>
       <?php
     }

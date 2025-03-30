@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WPCF\FirewallSync\Admin;
 
 use WP_List_Table;
+use WPCF\FirewallSync\Plugin;
 use WPCF\FirewallSync\Services\BlockLogger;
 
 if (!class_exists('WP_List_Table')) {
@@ -16,8 +17,8 @@ final class LogTable extends WP_List_Table {
 
   public function __construct() {
     parent::__construct([
-      'singular' => __('Firewall Block', 'wordfence-cloudflare-sync'),
-      'plural' => __('Firewall Blocks', 'wordfence-cloudflare-sync'),
+      'singular' => __('Firewall Block', Plugin::get_text_domain()),
+      'plural' => __('Firewall Blocks', Plugin::get_text_domain()),
       'ajax' => false,
     ]);
   }
@@ -40,17 +41,17 @@ final class LogTable extends WP_List_Table {
 
   public function get_columns(): array {
     return [
-      'ip' => __('IP Address', 'wordfence-cloudflare-sync'),
-      'reason' => __('Reason', 'wordfence-cloudflare-sync'),
-      'created_at' => __('Created At', 'wordfence-cloudflare-sync'),
+      'ip' => __('IP Address', Plugin::get_text_domain()),
+      'reason' => __('Reason', Plugin::get_text_domain()),
+      'created_at' => __('Created At', Plugin::get_text_domain()),
     ];
   }
 
-  public function column_default(array $item, string $column_name): string {
+  public function column_default($item, $column_name): string {
     return esc_html($item[$column_name]);
   }
 
   public function no_items(): void {
-    echo '<p>' . __('No firewall blocks found.', 'wordfence-cloudflare-sync') . '</p>';
+    echo '<p>' . __('No firewall blocks found.', Plugin::get_text_domain()) . '</p>';
   }
 }
