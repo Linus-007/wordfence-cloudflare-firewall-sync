@@ -32,12 +32,12 @@ final class SyncScheduler {
   public static function custom_intervals(array $schedules): array {
     $schedules['every_5_minutes'] = [
       'interval' => 300,
-      'display' => __('Every 5 Minutes', 'firewall-sync')
+      'display' => __('Every 5 Minutes', 'wordfence-cloudflare-sync')
     ];
 
     $schedules['every_15_minutes'] = [
       'interval' => 900,
-      'display' => __('Every 15 Minutes', 'firewall-sync')
+      'display' => __('Every 15 Minutes', 'wordfence-cloudflare-sync')
     ];
 
     return $schedules;
@@ -61,7 +61,7 @@ final class SyncScheduler {
 
     foreach ($blocks as $block) {
       $ip = $block['ip'] ?? null;
-      $reason = $block['reason'] ?? 'Unknown';
+      $reason = $block['reason'] ?? __('Unknown', 'wordfence-cloudflare-sync');
       $expiration = (int) ($block['expirationUnix'] ?? 0);
       $is_permanent = $block['permanent'] ?? false;
 

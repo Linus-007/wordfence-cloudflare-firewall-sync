@@ -19,3 +19,6 @@ clean:
 
 format:
 	php-cs-fixer fix
+
+pot:
+	wp i18n make-pot ./wp-content/plugins/wordfence-cloudflare-sync/ ./wp-content/plugins/wordfence-cloudflare-sync/languages/wordfence-cloudflare-sync.pot --domain=wordfence-cloudflare-sync --allow-root

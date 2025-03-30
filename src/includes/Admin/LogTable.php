@@ -16,8 +16,8 @@ final class LogTable extends WP_List_Table {
 
   public function __construct() {
     parent::__construct([
-      'singular' => 'Firewall Block',
-      'plural' => 'Firewall Blocks',
+      'singular' => __('Firewall Block', 'wordfence-cloudflare-sync'),
+      'plural' => __('Firewall Blocks', 'wordfence-cloudflare-sync'),
       'ajax' => false,
     ]);
   }
@@ -40,9 +40,9 @@ final class LogTable extends WP_List_Table {
 
   public function get_columns(): array {
     return [
-      'ip' => __('IP Address', 'firewall-sync'),
-      'reason' => __('Reason', 'firewall-sync'),
-      'created_at' => __('Created At', 'firewall-sync'),
+      'ip' => __('IP Address', 'wordfence-cloudflare-sync'),
+      'reason' => __('Reason', 'wordfence-cloudflare-sync'),
+      'created_at' => __('Created At', 'wordfence-cloudflare-sync'),
     ];
   }
 
@@ -51,6 +51,6 @@ final class LogTable extends WP_List_Table {
   }
 
   public function no_items(): void {
-    echo '<p>' . __('No firewall blocks found.', 'firewall-sync') . '</p>';
+    echo '<p>' . __('No firewall blocks found.', 'wordfence-cloudflare-sync') . '</p>';
   }
 }

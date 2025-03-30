@@ -11,8 +11,8 @@ final class Settings {
 
     public static function add_settings_page(): void {
       add_menu_page(
-        'Firewall Sync Settings',
-        'Firewall Sync',
+        __('Firewall Sync Settings', 'wordfence-cloudflare-sync'),
+        __('Firewall Sync', 'wordfence-cloudflare-sync'),
         'manage_options',
         'firewall-sync-settings',
         [self::class, 'render'],
@@ -30,7 +30,7 @@ final class Settings {
       if ($last_sync) {
         $last_sync_time = date('Y-m-d H:i:s', $last_sync);
       } else {
-        $last_sync_time = __('Never', 'firewall-sync');
+        $last_sync_time = __('Never', 'wordfence-cloudflare-sync');
       }
       ?>
         <div class="wrap">
@@ -48,13 +48,13 @@ final class Settings {
 
           <hr>
 
-          <h2><?php esc_html_e('Last Sync Time', 'firewall-sync'); ?></h2>
+          <h2><?php __('Last Sync Time', 'wordpress-cloudflare-sync'); ?></h2>
           <p><?php echo esc_html($last_sync_time); ?></p>
 
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top: 10px;">
             <?php wp_nonce_field('firewall_sync_now', 'firewall_sync_now_nonce'); ?>
             <input type="hidden" name="action" value="firewall_sync_now">
-            <?php submit_button('Sync Now', 'primary', 'firewall_sync_now', false, ['disabled' => $sync_disabled]); ?>
+            <?php submit_button(__('Sync Now', 'wordfence-cloudflare-sync'), 'primary', 'firewall_sync_now', false, ['disabled' => $sync_disabled]); ?>
           </form>
 
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top: 10px;">
@@ -71,7 +71,7 @@ final class Settings {
 
           <details style="margin-top: 20px;">
             <summary style="font-size: 1.2em; cursor: pointer;">
-              <?php esc_html_e('View Block Log', 'firewall-sync'); ?>
+              <?php __('View Block Log', 'wordpress-cloudflare-sync'); ?>
             </summary>
             <div style="margin-top: 10px;">
               <?php $log_table->display(); ?>
@@ -81,9 +81,9 @@ final class Settings {
           <?php if ($result = get_transient('firewall_sync_reconcile_result')) {
             delete_transient('firewall_sync_reconcile_result');
 
-            echo '<h2>Reconciliation Results</h2>';
+            echo '<h2>' . __('Reconciliation Results', 'wordfence-cloudflare-sync') . '</h2>';
 
-            echo '<h3>Missing in Cloudflare (in log but not in CF)</h3>';
+            echo '<h3>' . __('Missing in Cloudflare', 'wordfence-cloudflare-sync') . '</h3>';
             echo '<ul>';
 
             foreach ($result['missing_in_cf'] as $ip) {
@@ -92,7 +92,7 @@ final class Settings {
 
             echo '</ul>';
 
-            echo '<h3>Orphaned in Cloudflare (in CF but not in log)</h3>';
+            echo '<h3>' . __('Orphaned in Cloudflare', 'wordfence-cloudflare-sync') . '</h3>';
             echo '<ul>';
 
             foreach ($result['orphaned_in_cf'] as $ip) {

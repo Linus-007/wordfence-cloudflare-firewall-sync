@@ -19,6 +19,12 @@ final class Plugin {
     self::define_constants();
     self::load_admin();
     self::load_services();
+
+    load_plugin_textdomain(
+      'wordfence-cloudflare-sync',
+      false,
+      dirname(plugin_basename(__DIR__ . '/../index.php')) . '/languages'
+    );
   }
 
   public static function get_version(): string {
@@ -60,6 +66,18 @@ final class Plugin {
   public static function activate(): void {
     self::define_constants();
 
+    if (is_multisite() && isset($_GET['networkwide']) && $_GET['networkwide'] === '1') {
+      foreach(get_sites(['fields' => 'ids']) as $blog_id) {
+        switch_to_blog($blog_id);
+        self::run_site_activation();
+        restore_current_blog();
+      }
+    } else {
+      self::run_site_activation();
+    }
+  }
+
+  public static function run_site_activation(): void {
     $stored_version = get_option('firewall_sync_version');
 
     if ($stored_version === false) {

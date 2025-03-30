@@ -39,7 +39,7 @@ final class Client {
         'target' => 'ip',
         'value' => $ip,
       ],
-      'notes' => 'Wordfence Sync Block',
+      'notes' => __('Wordfence Sync Block', 'wordfence-cloudflare-sync'),
     ];
 
     $response = wp_remote_post($url, [
