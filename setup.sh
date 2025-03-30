@@ -44,9 +44,15 @@ cat <<EOF > /var/www/html/autologin.json
 }
 EOF
 
-# Activate your plugin
+echo "🚀 Installing Wordfence Plugin"
+wp plugin install wordfence --activate --allow-root
+
 echo "🚀 Installing Wordfence Cloudflare Sync plugin..."
 wp plugin install wordfence-cloudflare-sync --activate --allow-root
+
+echo "🧹 Removing pre-installed plugins..."
+wp plugin delete hello --allow-root
+wp plugin delete akismet --allow-root
 
 echo ""
 echo "✅ Wordfence Cloudflare Sync plugin activated."
