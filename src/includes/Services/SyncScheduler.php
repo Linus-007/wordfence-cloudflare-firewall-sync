@@ -134,8 +134,19 @@ final class SyncScheduler {
     $options = get_option('firewall_sync_options');
     $token = $options['cloudflare_api_token'] ?? '';
     $zone = $options['cloudflare_zone_id'] ?? '';
+    $mode = $options['cloudflare_mode'] ?? 'zone_access_rules';
+    $account_id = $options['cloudflare_account_id'] ?? '';
+    $list_id = $options['cloudflare_list_id'] ?? '';
 
-    if (empty($token) || empty($zone)) {
+    if (empty($token)) {
+      return;
+    }
+
+    if ($mode === 'account_list') {
+      if (empty($account_id) || empty($list_id)) {
+        return;
+      }
+    } elseif (empty($zone)) {
       return;
     }
 
@@ -156,7 +167,11 @@ final class SyncScheduler {
         $ip = $row['ip'] ?? null;
 
         if ($ip) {
-          $client->delete_block($ip);
+          if ($mode === 'account_list') {
+            $client->remove_ip_from_account_list($account_id, $list_id, $ip);
+          } else {
+            $client->delete_block($ip);
+          }
 
           $wpdb->delete($table, ['ip' => $ip], ['%s']);
         }
