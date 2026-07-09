@@ -50,8 +50,19 @@ final class SyncScheduler {
     $options = get_option('firewall_sync_options');
     $token = $options['cloudflare_api_token'] ?? '';
     $zone = $options['cloudflare_zone_id'] ?? '';
+    $mode = $options['cloudflare_mode'] ?? 'zone_access_rules';
+    $account_id = $options['cloudflare_account_id'] ?? '';
+    $list_id = $options['cloudflare_list_id'] ?? '';
 
-    if (empty($token) || empty($zone)) {
+    if (empty($token)) {
+      return false;
+    }
+
+    if ($mode === 'account_list') {
+      if (empty($account_id) || empty($list_id)) {
+        return false;
+      }
+    } elseif (empty($zone)) {
       return false;
     }
 
@@ -84,7 +95,24 @@ final class SyncScheduler {
       $batch[] = ['ip' => $ip, 'reason' => $reason];
     }
     
-    $failed = $client->batch_block($batch);
+    if ($mode === 'account_list') {
+      $failed = [];
+
+      foreach ($batch as $entry) {
+        $added = $client->add_ip_to_account_list(
+          $account_id,
+          $list_id,
+          $entry['ip'],
+          'Wordfence sync: ' . $entry['reason']
+        );
+
+        if (!$added) {
+          $failed[] = $entry['ip'];
+        }
+      }
+    } else {
+      $failed = $client->batch_block($batch);
+    }
 
     foreach ($batch as $entry) {
       if (in_array($entry['ip'], $failed, true)) {
