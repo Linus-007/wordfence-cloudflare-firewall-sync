@@ -95,7 +95,12 @@ final class Client {
       }
 
       $body = json_decode(wp_remote_retrieve_body($response), true);
-      $items = $body['result'] ?? [];
+
+      if (!is_array($body) || !isset($body['result']) || !is_array($body['result'])) {
+        return null;
+      }
+
+      $items = $body['result'];
 
       foreach ($items as $item) {
         if (($item['ip'] ?? '') === $ip) {
@@ -154,7 +159,12 @@ final class Client {
       }
 
       $body = json_decode(wp_remote_retrieve_body($response), true);
-      $items = $body['result'] ?? [];
+
+      if (!is_array($body) || !isset($body['result']) || !is_array($body['result'])) {
+        break;
+      }
+
+      $items = $body['result'];
 
       foreach ($items as $item) {
         if (!empty($item['ip'])) {
