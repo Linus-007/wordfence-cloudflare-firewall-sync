@@ -50,11 +50,14 @@ final class Fields {
         $options = get_option('firewall_sync_options');
         $value = $options[$name] ?? '';
 
+        $type = $name === 'cloudflare_api_token' ? 'password' : 'text';
+
         printf(
-          '<input type="text" id="%1$s" name="firewall_sync_options[%1$s]" value="%2$s" placeholder="%3$s" class="regular-text">',
+          '<input type="%4$s" id="%1$s" name="firewall_sync_options[%1$s]" value="%2$s" placeholder="%3$s" class="regular-text" autocomplete="off">',
           esc_attr($name),
           esc_attr($value),
-          esc_attr($placeholder)
+          esc_attr($placeholder),
+          esc_attr($type)
         );
 
         if ($name === 'cloudflare_api_token') {
