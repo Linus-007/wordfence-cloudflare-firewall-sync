@@ -31,6 +31,21 @@ final class Client {
     return $code === 200;
   }
 
+  public function validate_account_list(string $account_id, string $list_id): bool {
+    if ($account_id === '' || $list_id === '') {
+      return false;
+    }
+
+    $url = $this->apiBase . "/accounts/{$account_id}/rules/lists/{$list_id}";
+    $response = wp_remote_get($url, $this->get_request_args());
+
+    if (is_wp_error($response)) {
+      return false;
+    }
+
+    return wp_remote_retrieve_response_code($response) === 200;
+  }
+
   public function create_block(string $ip): bool {
     $url = $this->apiBase . "/zones/{$this->zone}/firewall/access_rules/rules";
 
