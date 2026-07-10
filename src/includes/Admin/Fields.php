@@ -385,10 +385,17 @@ final class Fields {
     );
 
     $scope = self::posted_scope();
-    $input = isset($_POST['firewall_sync_options'])
+    $input = [];
+
+    if (
+      isset($_POST['firewall_sync_options'])
       && is_array($_POST['firewall_sync_options'])
-        ? wp_unslash($_POST['firewall_sync_options'])
-        : [];
+    ) {
+      $input = map_deep(
+        wp_unslash($_POST['firewall_sync_options']),
+        'sanitize_text_field'
+      );
+    }
 
     if ($scope === 'network') {
       self::require_network_capability();
@@ -681,6 +688,7 @@ final class Fields {
         self::redirect_with_message(
           $scope,
           sprintf(
+            /* translators: 1: IP address, 2: Cloudflare list name. */
             __(
               'IP address %1$s already exists in Cloudflare list %2$s.',
               'greyrock-wordfence-cloudflare-synchroniser'
@@ -700,6 +708,7 @@ final class Fields {
       );
 
       $success_message = sprintf(
+        /* translators: 1: IP address, 2: Cloudflare list name. */
         __(
           'IP address %1$s was added to Cloudflare list %2$s.',
           'greyrock-wordfence-cloudflare-synchroniser'
@@ -720,6 +729,7 @@ final class Fields {
       );
 
       $success_message = sprintf(
+        /* translators: 1: IP address, 2: Cloudflare list name. */
         __(
           'IP address %1$s was removed from Cloudflare list %2$s.',
           'greyrock-wordfence-cloudflare-synchroniser'
@@ -1052,6 +1062,11 @@ final class Fields {
   }
 
   private static function posted_scope(): string {
+    /*
+     * Nonce verification is performed by each form handler before this
+     * helper is called.
+     */
+    // phpcs:ignore WordPress.Security.NonceVerification.Missing
     $scope = sanitize_key(
       wp_unslash($_POST['firewall_sync_scope'] ?? 'site')
     );

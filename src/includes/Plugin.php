@@ -22,12 +22,6 @@ final class Plugin {
     self::register_multisite_hooks();
     self::load_admin();
     self::load_services();
-
-    load_plugin_textdomain(
-      self::get_text_domain(),
-      false,
-      dirname(plugin_basename(__DIR__ . '/../index.php')) . '/languages'
-    );
   }
 
   public static function get_version(): string {

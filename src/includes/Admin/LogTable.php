@@ -4,54 +4,73 @@ declare(strict_types=1);
 
 namespace WPCF\FirewallSync\Admin;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use WP_List_Table;
-use WPCF\FirewallSync\Plugin;
 use WPCF\FirewallSync\Services\BlockLogger;
 
-if (!class_exists('WP_List_Table')) {
-  require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
+if ( ! class_exists( 'WP_List_Table' ) ) {
+	require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
 }
 
 final class LogTable extends WP_List_Table {
-  private array $items_data;
+	private array $items_data;
 
-  public function __construct() {
-    parent::__construct([
-      'singular' => __('Firewall Block', 'greyrock-wordfence-cloudflare-synchroniser'),
-      'plural' => __('Firewall Blocks', 'greyrock-wordfence-cloudflare-synchroniser'),
-      'ajax' => false,
-    ]);
-  }
+	public function __construct() {
+		parent::__construct(
+			[
+				'singular' => __( 'Firewall Block', 'greyrock-wordfence-cloudflare-synchroniser' ),
+				'plural'   => __( 'Firewall Blocks', 'greyrock-wordfence-cloudflare-synchroniser' ),
+				'ajax'     => false,
+			]
+		);
+	}
 
-  public function prepare_items(): void {
-    $per_page = 10;
-    $current_page = max(1, (int) ($_GET['paged'] ?? 1));
-    $total_items = BlockLogger::count();
+	public function prepare_items(): void {
+		$per_page    = 10;
+		$current_page = 1;
 
-    $this->items_data = BlockLogger::get_logs($per_page, ($current_page - 1) * $per_page);
+		if ( isset( $_GET['paged'] ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only pagination parameter.
+			$current_page = max(
+				1,
+				absint( wp_unslash( $_GET['paged'] ) )
+			);
+		}
 
-    $this->set_pagination_args([
-      'total_items' => $total_items,
-      'per_page' => $per_page,
-      'total_pages' => (int) ceil($total_items / $per_page),
-    ]);
+		$total_items = BlockLogger::count();
 
-    $this->items = $this->items_data;
-  }
+		$this->items_data = BlockLogger::get_logs(
+			$per_page,
+			( $current_page - 1 ) * $per_page
+		);
 
-  public function get_columns(): array {
-    return [
-      'ip' => __('IP Address', 'greyrock-wordfence-cloudflare-synchroniser'),
-      'reason' => __('Reason', 'greyrock-wordfence-cloudflare-synchroniser'),
-      'created_at' => __('Created At', 'greyrock-wordfence-cloudflare-synchroniser'),
-    ];
-  }
+		$this->set_pagination_args(
+			[
+				'total_items' => $total_items,
+				'per_page'    => $per_page,
+				'total_pages' => (int) ceil( $total_items / $per_page ),
+			]
+		);
 
-  public function column_default($item, $column_name): string {
-    return esc_html($item[$column_name]);
-  }
+		$this->items = $this->items_data;
+	}
 
-  public function no_items(): void {
-    echo '<p>' . __('No firewall blocks found.', 'greyrock-wordfence-cloudflare-synchroniser') . '</p>';
-  }
+	public function get_columns(): array {
+		return [
+			'ip'         => __( 'IP Address', 'greyrock-wordfence-cloudflare-synchroniser' ),
+			'reason'     => __( 'Reason', 'greyrock-wordfence-cloudflare-synchroniser' ),
+			'created_at' => __( 'Created At', 'greyrock-wordfence-cloudflare-synchroniser' ),
+		];
+	}
+
+	public function column_default( $item, $column_name ): string {
+		return esc_html( (string) ( $item[ $column_name ] ?? '' ) );
+	}
+
+	public function no_items(): void {
+		echo '<p>' . esc_html__( 'No firewall blocks found.', 'greyrock-wordfence-cloudflare-synchroniser' ) . '</p>';
+	}
 }

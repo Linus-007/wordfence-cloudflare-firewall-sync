@@ -4,7 +4,7 @@ Tags: wordfence, cloudflare, firewall, security, multisite
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.1.6
+Stable tag: 1.1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -242,6 +242,15 @@ No.
 
 == Changelog ==
 
+= 1.1.7 =
+
+* Added direct-access protection to the synchronisation log table.
+* Corrected log-table pagination input handling and output escaping.
+* Added required translator comments for placeholder strings.
+* Sanitised submitted settings arrays before configuration processing.
+* Documented nonce verification for the shared scope helper.
+* Removed obsolete manual translation-domain loading.
+
 = 1.1.6 =
 
 * Added WordPress.org-compatible licensing and metadata.
@@ -272,6 +281,10 @@ No.
 * Updated Greyrock branding and release packaging.
 
 == Upgrade Notice ==
+
+= 1.1.7 =
+
+Improves WordPress.org compliance for input handling, escaping, translation strings and direct file access.
 
 = 1.1.6 =
 
