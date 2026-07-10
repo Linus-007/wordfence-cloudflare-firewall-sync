@@ -5,28 +5,70 @@ on:
     tags:
       - 'v*.*.*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Create Release Zip
+    name: Validate and Create Release ZIP
     runs-on: ubuntu-latest
 
+    env:
+      PLUGIN_SLUG: wordfence-cloudflare-firewall-sync
+      RELEASE_ZIP: dist/greyrock-wordfence-cloudflare-synchroniser.zip
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Check out repository
+        uses: actions/checkout@v4
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
+          coverage: none
 
-      - name: Create plugin zip
+      - name: Validate PHP syntax
+        shell: bash
         run: |
-          cd src
-          zip -r ../wordfence-cloudflare-firewall-sync.zip . -x '*.DS_Store' '__MACOSX'
+          set -euo pipefail
+
+          find src -type f -name '*.php' -print0 \
+            | xargs -0 -n1 php -l
+
+      - name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+
+          PLUGIN_VERSION="$(
+            sed -nE \
+              's/^[[:space:]]*\*[[:space:]]Version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p' \
+              src/index.php \
+              | head -n 1
+          )"
+
+          if [[ -z "${PLUGIN_VERSION}" ]]; then
+            echo "Could not read the plugin version from src/index.php."
+            exit 1
+          fi
+
+          if [[ "${TAG_VERSION}" != "${PLUGIN_VERSION}" ]]; then
+            echo "Version mismatch:"
+            echo "  Git tag:       ${TAG_VERSION}"
+            echo "  Plugin header: ${PLUGIN_VERSION}"
+            exit 1
+          fi
+
+      - name: Build and verify WordPress plugin ZIP
+        run: |
+          python3 scripts/build-release.py \
+            --source src \
+            --output "${RELEASE_ZIP}"
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          files: wordfence-cloudflare-firewall-sync.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: dist/greyrock-wordfence-cloudflare-synchroniser.zip
+          generate_release_notes: true

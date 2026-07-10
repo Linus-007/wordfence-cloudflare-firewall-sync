@@ -1,8 +1,8 @@
 # Copyright (C) 2025 Mike Orozco
-# This file is distributed under the same license as the Wordfence Cloudflare Firewall Sync plugin.
+# This file is distributed under the same licence as the Greyrock Wordfence-Cloudflare Synchroniser plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: Wordfence Cloudflare Firewall Sync 1.0.0\n"
+"Project-Id-Version: Greyrock Wordfence-Cloudflare Synchroniser 1.1.2\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wordfence-cloudflare-sync\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -12,11 +12,11 @@ msgstr ""
 "POT-Creation-Date: 2025-03-31T03:18:24+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.11.0\n"
-"X-Domain: wordfence-cloudflare-sync\n"
+"X-Domain: wordpress-cloudflare-sync\n"
 
 #. Plugin Name of the plugin
 #: index.php
-msgid "Wordfence Cloudflare Firewall Sync"
+msgid "Greyrock Wordfence-Cloudflare Synchroniser"
 msgstr ""
 
 #. Description of the plugin

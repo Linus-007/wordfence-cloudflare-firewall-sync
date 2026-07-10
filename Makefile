@@ -1,49 +1,86 @@
-# File: Makefile
+PLUGIN_SLUG := wordfence-cloudflare-firewall-sync
+PLUGIN_ENTRY := src/index.php
+RELEASE_DIR := dist
+RELEASE_ZIP := $(RELEASE_DIR)/greyrock-wordfence-cloudflare-synchroniser.zip
+BUILD_SCRIPT := scripts/build-release.py
+GIT_REMOTE := fork
+PHP ?= php
+PYTHON ?= python3
 
-PLUGIN_SLUG = wordfence-cloudflare-sync
-RELEASE_DIR = dist
-RELEASE_ZIP = $(RELEASE_DIR)/$(PLUGIN_SLUG).zip
+.PHONY: help validate version-check build release tag-release clean pot
 
-.PHONY: release clean
+help:
+	@printf '%s\n' \
+	  'Available targets:' \
+	  '  make validate' \
+	  '  make build' \
+	  '  make release VERSION=1.1.1' \
+	  '  make tag-release VERSION=1.1.1' \
+	  '  make clean' \
+	  '  make pot'
 
-release: clean
-	@echo "📦 Creating plugin zip..."
-	@mkdir -p $(RELEASE_DIR)
-	@cd src && zip -r ../$(RELEASE_ZIP) . -x '*.DS_Store' '__MACOSX'
-	@echo "✅ Done: $(RELEASE_ZIP)"
+validate:
+	@echo "Validating PHP syntax..."
+	@find src -type f -name '*.php' -print0 | xargs -0 -n1 $(PHP) -l
+	@echo "Validating release builder..."
+	@$(PYTHON) -m py_compile "$(BUILD_SCRIPT)"
+	@echo "Checking repository whitespace..."
+	@git diff --check
+	@echo "Validation passed."
+
+version-check:
+	@if [ -z "$(VERSION)" ]; then \
+	  echo "VERSION is required. Example: make release VERSION=1.1.1"; \
+	  exit 1; \
+	fi
+	@if ! printf '%s\n' "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+	  echo "Invalid VERSION: $(VERSION)"; \
+	  echo "Use semantic version format such as 1.1.1."; \
+	  exit 1; \
+	fi
+	@PLUGIN_VERSION="$$(sed -nE 's/^[[:space:]]*\*[[:space:]]Version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*$$/\1/p' "$(PLUGIN_ENTRY)" | head -n 1)"; \
+	if [ -z "$${PLUGIN_VERSION}" ]; then \
+	  echo "Could not read the plugin version from $(PLUGIN_ENTRY)."; \
+	  exit 1; \
+	fi; \
+	if [ "$${PLUGIN_VERSION}" != "$(VERSION)" ]; then \
+	  echo "Version mismatch:"; \
+	  echo "  Requested:     $(VERSION)"; \
+	  echo "  Plugin header: $${PLUGIN_VERSION}"; \
+	  exit 1; \
+	fi
+
+build: validate clean
+	@echo "Building $(RELEASE_ZIP)..."
+	@$(PYTHON) "$(BUILD_SCRIPT)" \
+	  --source src \
+	  --output "$(RELEASE_ZIP)"
+
+release: version-check build
+	@echo "Release ZIP is ready: $(RELEASE_ZIP)"
+
+tag-release: version-check validate
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+	  echo "The working tree or staging area contains uncommitted changes."; \
+	  exit 1; \
+	fi
+	@if git rev-parse "v$(VERSION)" >/dev/null 2>&1; then \
+	  echo "Tag v$(VERSION) already exists."; \
+	  exit 1; \
+	fi
+	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
+	@git push "$(GIT_REMOTE)" "v$(VERSION)"
+	@echo "Tag v$(VERSION) pushed to $(GIT_REMOTE)."
+	@echo "GitHub Actions will validate, package, and publish the release."
 
 clean:
-	@echo "🧹 Cleaning old release..."
-	@rm -rf $(RELEASE_DIR)
-	@echo "✅ Done: Old release cleaned."
-
-format:
-	php-cs-fixer fix
+	@rm -rf "$(RELEASE_DIR)"
+	@find scripts -type d -name '__pycache__' -prune -exec rm -rf {} +
+	@echo "Removed generated release files."
 
 pot:
-	wp i18n make-pot ./wp-content/plugins/wordfence-cloudflare-sync/ ./wp-content/plugins/wordfence-cloudflare-sync/languages/wordfence-cloudflare-sync.pot --domain=wordfence-cloudflare-sync --allow-root
-
-release:
-	ifndef VERSION
-		$(error You must specify VERSION, e.g. make release VERSION=1.2.3)
-	endif
-	@echo "Validating version format..."
-	@if ! echo "$(VERSION)" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+$$'; then \
-		echo "Invalid version format: $(VERSION)"; \
-		exit 1; \
-	fi
-
-	@echo "🔍 Checking plugin header version..."
-	@PLUGIN_VERSION=$$(grep -Po '(?<=^\\s*Version:\\s)([0-9]+\\.[0-9]+\\.[0-9]+)' src/index.php); \
-	if [ "$${PLUGIN_VERSION}" != "$(VERSION)" ] && [ "v$${PLUGIN_VERSION}" != "$(VERSION)" ]; then \
-		echo "Version mismatch: index.php has v$${PLUGIN_VERSION}, you passed $(VERSION)"; \
-		exit 1; \
-	fi
-
-	@echo "Tagging release v$(VERSION)..."
-	git tag v$(VERSION)
-
-	@echo "🚀 Pushing tag to GitHub..."
-	git push origin v$(VERSION)
-
-	@echo "Tag pushed. GitHub Actions will handle zip + release."
+	@wp i18n make-pot \
+	  src \
+	  src/languages/wordpress-cloudflare-sync.pot \
+	  --domain=wordpress-cloudflare-sync \
+	  --allow-root

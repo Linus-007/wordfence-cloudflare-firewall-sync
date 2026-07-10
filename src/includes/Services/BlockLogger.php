@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace WPCF\FirewallSync\Services;
 
-use wpdb;
-
 final class BlockLogger {
   public const TABLE = 'wpcf_sync_blocks';
+  public const MAX_FAILURES = 3;
 
   public static function create_table(): void {
     global $wpdb;
@@ -22,41 +21,73 @@ final class BlockLogger {
       ip VARCHAR(45) NOT NULL,
       reason VARCHAR(255) DEFAULT 'sync',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      synced_at DATETIME DEFAULT NULL,
       expires_at DATETIME DEFAULT NULL,
-      fail_count TINYINT DEFAULT 0,
+      fail_count TINYINT UNSIGNED NOT NULL DEFAULT 0,
       PRIMARY KEY (id),
       UNIQUE KEY ip (ip),
       KEY expires_at (expires_at),
-      KEY created_at (created_at)
+      KEY created_at (created_at),
+      KEY synchronization_state (synced_at, fail_count)
     ) {$charset_collate};";
 
     dbDelta($sql);
   }
 
-  public static function log(string $ip, string $reason = 'sync', ?string $expires_at = null): void {
+  /**
+   * Record a successful synchronization.
+   *
+   * Existing failed rows are converted into successful rows so a retry can
+   * recover without violating the unique IP constraint.
+   */
+  public static function log(
+    string $ip,
+    string $reason = 'sync',
+    ?string $expires_at = null
+  ): void {
     global $wpdb;
 
-    $wpdb->insert(
-      $wpdb->prefix . self::TABLE,
-      [
-        'ip' => $ip,
-        'reason' => $reason,
-        'created_at' => current_time('mysql'),
-        'synced_at' => current_time('mysql'),
-        'expires_at' => $expires_at
-      ],
-      ['%s', '%s', '%s', '%s', '%s']
+    $table = $wpdb->prefix . self::TABLE;
+    $now = current_time('mysql');
+
+    $wpdb->query(
+      $wpdb->prepare(
+        "INSERT INTO {$table}
+          (ip, reason, created_at, synced_at, expires_at, fail_count)
+         VALUES
+          (%s, %s, %s, %s, %s, 0)
+         ON DUPLICATE KEY UPDATE
+          reason = VALUES(reason),
+          created_at = VALUES(created_at),
+          synced_at = VALUES(synced_at),
+          expires_at = VALUES(expires_at),
+          fail_count = 0",
+        $ip,
+        $reason,
+        $now,
+        $now,
+        $expires_at
+      )
     );
   }
 
-  public static function get_logs(int $limit = 20, int $offset = 0): array {
+  public static function get_logs(
+    int $limit = 20,
+    int $offset = 0
+  ): array {
     global $wpdb;
 
     $table = $wpdb->prefix . self::TABLE;
 
     return $wpdb->get_results(
-      $wpdb->prepare("SELECT ip, reason, created_at FROM {$table} ORDER BY created_at DESC LIMIT %d OFFSET %d", $limit, $offset),
+      $wpdb->prepare(
+        "SELECT ip, reason, created_at
+         FROM {$table}
+         ORDER BY created_at DESC
+         LIMIT %d OFFSET %d",
+        $limit,
+        $offset
+      ),
       ARRAY_A
     );
   }
@@ -66,49 +97,101 @@ final class BlockLogger {
 
     $table = $wpdb->prefix . self::TABLE;
 
-    return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
+    return (int) $wpdb->get_var(
+      "SELECT COUNT(*) FROM {$table}"
+    );
   }
 
+  /**
+   * Return true only when the IP completed synchronization successfully.
+   */
   public static function has_synced(string $ip): bool {
     global $wpdb;
 
     $table = $wpdb->prefix . self::TABLE;
 
-    $result = $wpdb->get_var($wpdb->prepare(
-      "SELECT COUNT(*) FROM {$table} WHERE ip = %s",
-      $ip
-    ));
-
-    return (int) $result > 0;
+    return (bool) $wpdb->get_var(
+      $wpdb->prepare(
+        "SELECT 1
+         FROM {$table}
+         WHERE ip = %s
+           AND synced_at IS NOT NULL
+           AND fail_count = 0
+         LIMIT 1",
+        $ip
+      )
+    );
   }
 
+  /**
+   * Return only IPs that were successfully synchronized.
+   */
   public static function get_all_ips(): array {
     global $wpdb;
 
     $table = $wpdb->prefix . self::TABLE;
 
-    return $wpdb->get_col("SELECT ip FROM {$table}");
+    return $wpdb->get_col(
+      "SELECT ip
+       FROM {$table}
+       WHERE synced_at IS NOT NULL
+         AND fail_count = 0"
+    );
   }
 
-  public static function mark_failed(string $ip): void {
+  /**
+   * Record a failed synchronization attempt.
+   */
+  public static function mark_failed(
+    string $ip,
+    string $reason = 'sync',
+    ?string $expires_at = null
+  ): void {
     global $wpdb;
 
     $table = $wpdb->prefix . self::TABLE;
+    $now = current_time('mysql');
 
-    $wpdb->query($wpdb->prepare(
-      "INSERT INTO {$table} (ip, fail_count) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail_count = LEAST(fail_count + 1, 3)",
-      $ip
-    ));
+    $wpdb->query(
+      $wpdb->prepare(
+        "INSERT INTO {$table}
+          (ip, reason, created_at, synced_at, expires_at, fail_count)
+         VALUES
+          (%s, %s, %s, NULL, %s, 1)
+         ON DUPLICATE KEY UPDATE
+          reason = VALUES(reason),
+          created_at = VALUES(created_at),
+          synced_at = NULL,
+          expires_at = VALUES(expires_at),
+          fail_count = LEAST(fail_count + 1, %d)",
+        $ip,
+        $reason,
+        $now,
+        $expires_at,
+        self::MAX_FAILURES
+      )
+    );
   }
 
+  /**
+   * Stop automatic retries after the configured failure limit.
+   */
   public static function is_blacklisted(string $ip): bool {
     global $wpdb;
 
     $table = $wpdb->prefix . self::TABLE;
 
-    return (bool) $wpdb->get_var($wpdb->prepare(
-      "SELECT 1 FROM {$table} WHERE ip = %s AND fail_count >= 3",
-      $ip
-    ));
+    return (bool) $wpdb->get_var(
+      $wpdb->prepare(
+        "SELECT 1
+         FROM {$table}
+         WHERE ip = %s
+           AND synced_at IS NULL
+           AND fail_count >= %d
+         LIMIT 1",
+        $ip,
+        self::MAX_FAILURES
+      )
+    );
   }
 }
