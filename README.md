@@ -2,7 +2,7 @@
 
 Greyrock Wordfence-Cloudflare Synchroniser synchronises IP addresses blocked by Wordfence with Cloudflare so unwanted traffic can be stopped at Cloudflare's network edge before it reaches the WordPress server.
 
-![Version](https://img.shields.io/badge/version-1.1.5-blue)
+![Version](https://img.shields.io/badge/version-1.1.6-blue)
 ![Tested with WordPress 7.0.1](https://img.shields.io/badge/WordPress-7.0.1-tested-blueviolet)
 ![Licence](https://img.shields.io/badge/licence-GPLv2-blue)
 
@@ -20,7 +20,7 @@ The existing technical identifiers are intentionally retained for compatibility:
 - main plugin file: `index.php`;
 - GitHub repository: `greyrock-wordfence-cloudflare-synchroniser`;
 - release ZIP: `greyrock-wordfence-cloudflare-synchroniser.zip`;
-- WordPress option names, hooks, database table names and text domain.
+- WordPress option names, hooks and database table names.
 
 Retaining these identifiers allows WordPress to recognise an upgrade as the same installed plugin rather than a different plugin.
 
@@ -101,6 +101,7 @@ The installed directory should contain:
 ```text
 wordfence-cloudflare-firewall-sync/
 ├── index.php
+├── readme.txt
 ├── uninstall.php
 ├── assets/
 ├── includes/
@@ -434,7 +435,36 @@ ip.src in $Greyrock-Wordfence-Blocks
 
 Confirm that Wordfence is installed, active and functioning on the current WordPress site.
 
+
+## External services and privacy
+
+The plugin communicates directly with the Cloudflare API over HTTPS using the WordPress HTTP API.
+
+It sends the Cloudflare API token for authentication, configured account or zone identifiers, qualifying public IP addresses, block reasons and Cloudflare rule or list-item identifiers required for the requested operation.
+
+It does not send telemetry or usage analytics to Greyscale Zone.
+
+The complete external-service, privacy, retention and uninstall disclosures are maintained in `readme.txt`.
+
 ## Release building
+
+### WordPress.org package
+
+Build the WordPress.org submission ZIP with:
+
+    make wordpress-org
+
+The normal GitHub package retains the historical plugin directory name for existing installations.
+
+The WordPress.org package uses:
+
+    greyrock-wordfence-cloudflare-synchroniser
+
+Build both packages with:
+
+    make release VERSION=1.1.6
+
+
 
 Validate the source:
 

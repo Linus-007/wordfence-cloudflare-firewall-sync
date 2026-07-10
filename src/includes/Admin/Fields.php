@@ -65,8 +65,8 @@ final class Fields {
     add_settings_section(
       'firewall_sync_main_section',
       is_network_admin()
-        ? __('Network Cloudflare Configuration', Plugin::get_text_domain())
-        : __('Cloudflare Configuration', Plugin::get_text_domain()),
+        ? __('Network Cloudflare Configuration', 'greyrock-wordfence-cloudflare-synchroniser')
+        : __('Cloudflare Configuration', 'greyrock-wordfence-cloudflare-synchroniser'),
       null,
       'firewall-sync-settings'
     );
@@ -81,26 +81,26 @@ final class Fields {
 
     self::add_text_field(
       'cloudflare_api_token',
-      __('Cloudflare API Token', Plugin::get_text_domain()),
-      __('Paste the restricted API token created for this plugin.', Plugin::get_text_domain())
+      __('Cloudflare API Token', 'greyrock-wordfence-cloudflare-synchroniser'),
+      __('Paste the restricted API token created for this plugin.', 'greyrock-wordfence-cloudflare-synchroniser')
     );
 
     self::add_text_field(
       'cloudflare_account_id',
-      __('Cloudflare Account ID', Plugin::get_text_domain()),
-      __('Required for Account IP List mode', Plugin::get_text_domain())
+      __('Cloudflare Account ID', 'greyrock-wordfence-cloudflare-synchroniser'),
+      __('Required for Account IP List mode', 'greyrock-wordfence-cloudflare-synchroniser')
     );
 
     self::add_text_field(
       'cloudflare_list_name',
-      __('Cloudflare List Name', Plugin::get_text_domain()),
-      __('Recommended: wordfence_hot_blocklist', Plugin::get_text_domain())
+      __('Cloudflare List Name', 'greyrock-wordfence-cloudflare-synchroniser'),
+      __('Recommended: wordfence_hot_blocklist', 'greyrock-wordfence-cloudflare-synchroniser')
     );
 
     self::add_text_field(
       'cloudflare_zone_id',
-      __('Cloudflare Zone ID', Plugin::get_text_domain()),
-      __('Required for Zone Access Rules mode', Plugin::get_text_domain())
+      __('Cloudflare Zone ID', 'greyrock-wordfence-cloudflare-synchroniser'),
+      __('Required for Zone Access Rules mode', 'greyrock-wordfence-cloudflare-synchroniser')
     );
 
     self::add_sync_interval_field();
@@ -111,7 +111,7 @@ final class Fields {
   private static function add_allow_site_overrides_field(): void {
     add_settings_field(
       'allow_site_overrides',
-      __('Site-specific settings', Plugin::get_text_domain()),
+      __('Site-specific settings', 'greyrock-wordfence-cloudflare-synchroniser'),
       static function (): void {
         $options = Config::get_network_options();
         $checked = !array_key_exists('allow_site_overrides', $options)
@@ -122,7 +122,7 @@ final class Fields {
           checked($checked, true, false),
           esc_html__(
             'Allow individual sites to use their own Cloudflare configuration.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           )
         );
       },
@@ -134,7 +134,7 @@ final class Fields {
   private static function add_configuration_source_field(): void {
     add_settings_field(
       'configuration_source',
-      __('Configuration source', Plugin::get_text_domain()),
+      __('Configuration source', 'greyrock-wordfence-cloudflare-synchroniser'),
       static function (): void {
         $allowed = Config::site_overrides_allowed();
         $source = Config::get_site_source();
@@ -145,7 +145,7 @@ final class Fields {
           echo '<p>';
           echo esc_html__(
             'Network Admin requires this site to use the network configuration.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           );
           echo '</p>';
 
@@ -157,7 +157,7 @@ final class Fields {
           checked($source, Config::SOURCE_NETWORK, false),
           esc_html__(
             'Use the Network Admin configuration',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           )
         );
 
@@ -166,14 +166,14 @@ final class Fields {
           checked($source, Config::SOURCE_SITE, false),
           esc_html__(
             'Use a site-specific configuration',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           )
         );
 
         echo '<p class="description">';
         echo esc_html__(
           'Save after changing the source. Site-specific fields become editable when this site uses its own configuration.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         );
         echo '</p>';
       },
@@ -185,7 +185,7 @@ final class Fields {
   private static function add_mode_field(): void {
     add_settings_field(
       'cloudflare_mode',
-      __('Cloudflare Mode', Plugin::get_text_domain()),
+      __('Cloudflare Mode', 'greyrock-wordfence-cloudflare-synchroniser'),
       static function (): void {
         $options = Config::get_admin_options();
         $value = $options['cloudflare_mode'] ?? 'zone_access_rules';
@@ -198,15 +198,15 @@ final class Fields {
           </select>',
           disabled($disabled, true, false),
           selected($value, 'zone_access_rules', false),
-          esc_html__('Zone Access Rules', Plugin::get_text_domain()),
+          esc_html__('Zone Access Rules', 'greyrock-wordfence-cloudflare-synchroniser'),
           selected($value, 'account_list', false),
-          esc_html__('Account IP List', Plugin::get_text_domain())
+          esc_html__('Account IP List', 'greyrock-wordfence-cloudflare-synchroniser')
         );
 
         echo '<p class="description">';
         echo esc_html__(
           'Zone Access Rules applies blocks to one zone. Account IP List stores addresses in a shared Cloudflare account list.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         );
         echo '</p>';
       },
@@ -241,19 +241,19 @@ final class Fields {
         $descriptions = [
           'cloudflare_api_token' => __(
             'Zone Access Rules mode needs Zone → Firewall Services: Edit and Zone → Zone: Read. Account IP List mode needs Account → Account Rule Lists: Edit. DNS editing permission is not required.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
           'cloudflare_zone_id' => __(
             'Find this on the Cloudflare zone Overview page. This is an identifier, not the domain name.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
           'cloudflare_account_id' => __(
             'Use the Account ID for the Cloudflare account that owns the IP list.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
           'cloudflare_list_name' => __(
             'Enter the visible Cloudflare list name without the dollar sign. The plugin finds the hidden internal List ID automatically. Cloudflare Free accounts permit one custom list, so the recommended name is wordfence_hot_blocklist. Use it in a Cloudflare Custom Rule as: ip.src in $wordfence_hot_blocklist.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
         ];
 
@@ -271,7 +271,7 @@ final class Fields {
   private static function add_historical_lookback_field(): void {
     add_settings_field(
       'historical_lookback_hours',
-      __('Historical WAF lookback', Plugin::get_text_domain()),
+      __('Historical WAF lookback', 'greyrock-wordfence-cloudflare-synchroniser'),
       static function (): void {
         $options = Config::get_admin_options();
         $value = (string) (
@@ -290,21 +290,21 @@ final class Fields {
           </select>',
           disabled($disabled, true, false),
           selected($value, '1', false),
-          esc_html__('1 hour', Plugin::get_text_domain()),
+          esc_html__('1 hour', 'greyrock-wordfence-cloudflare-synchroniser'),
           selected($value, '3', false),
-          esc_html__('3 hours', Plugin::get_text_domain()),
+          esc_html__('3 hours', 'greyrock-wordfence-cloudflare-synchroniser'),
           selected($value, '6', false),
-          esc_html__('6 hours', Plugin::get_text_domain()),
+          esc_html__('6 hours', 'greyrock-wordfence-cloudflare-synchroniser'),
           selected($value, '12', false),
-          esc_html__('12 hours', Plugin::get_text_domain()),
+          esc_html__('12 hours', 'greyrock-wordfence-cloudflare-synchroniser'),
           selected($value, '24', false),
-          esc_html__('24 hours', Plugin::get_text_domain())
+          esc_html__('24 hours', 'greyrock-wordfence-cloudflare-synchroniser')
         );
 
         echo '<p class="description">';
         echo esc_html__(
           'Also import Wordfence Live Traffic events recorded as blocked:waf during this period.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         );
         echo '</p>';
       },
@@ -316,7 +316,7 @@ final class Fields {
   private static function add_historical_minimum_events_field(): void {
     add_settings_field(
       'historical_minimum_events',
-      __('Historical block threshold', Plugin::get_text_domain()),
+      __('Historical block threshold', 'greyrock-wordfence-cloudflare-synchroniser'),
       static function (): void {
         $options = Config::get_admin_options();
         $value = (string) (
@@ -334,7 +334,7 @@ final class Fields {
         echo '<p class="description">';
         echo esc_html__(
           'Minimum blocked:waf events required from one IP address during the lookback period. Whole numbers from 1 through 100 are accepted.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         );
         echo '</p>';
       },
@@ -346,7 +346,7 @@ final class Fields {
   private static function add_sync_interval_field(): void {
     add_settings_field(
       'sync_interval',
-      __('Sync Interval', Plugin::get_text_domain()),
+      __('Sync Interval', 'greyrock-wordfence-cloudflare-synchroniser'),
       static function (): void {
         $options = Config::get_admin_options();
         $value = (string) ($options['sync_interval'] ?? '60');
@@ -360,11 +360,11 @@ final class Fields {
           </select>',
           disabled($disabled, true, false),
           selected($value, '5', false),
-          esc_html__('Every 5 minutes', Plugin::get_text_domain()),
+          esc_html__('Every 5 minutes', 'greyrock-wordfence-cloudflare-synchroniser'),
           selected($value, '15', false),
-          esc_html__('Every 15 minutes', Plugin::get_text_domain()),
+          esc_html__('Every 15 minutes', 'greyrock-wordfence-cloudflare-synchroniser'),
           selected($value, '60', false),
-          esc_html__('Every hour', Plugin::get_text_domain())
+          esc_html__('Every hour', 'greyrock-wordfence-cloudflare-synchroniser')
         );
       },
       'firewall-sync-settings',
@@ -398,7 +398,7 @@ final class Fields {
 
       self::redirect_with_message(
         'network',
-        __('Network firewall settings saved.', Plugin::get_text_domain()),
+        __('Network firewall settings saved.', 'greyrock-wordfence-cloudflare-synchroniser'),
         'updated'
       );
     }
@@ -414,7 +414,7 @@ final class Fields {
 
     self::redirect_with_message(
       'site',
-      __('Site firewall settings saved.', Plugin::get_text_domain()),
+      __('Site firewall settings saved.', 'greyrock-wordfence-cloudflare-synchroniser'),
       'updated'
     );
   }
@@ -448,13 +448,13 @@ final class Fields {
       $result
         ? __(
           'Cloudflare configuration validated successfully.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         )
         : self::client_error_message(
           $client,
           __(
             'Cloudflare configuration validation failed.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           )
         ),
       $result ? 'updated' : 'error'
@@ -476,7 +476,7 @@ final class Fields {
     if (!filter_var($ip, FILTER_VALIDATE_IP)) {
       self::redirect_with_message(
         $scope,
-        __('Enter a valid IPv4 or IPv6 address.', Plugin::get_text_domain()),
+        __('Enter a valid IPv4 or IPv6 address.', 'greyrock-wordfence-cloudflare-synchroniser'),
         'error'
       );
     }
@@ -503,7 +503,7 @@ final class Fields {
             $client,
             __(
               'The Cloudflare account list could not be resolved.',
-              Plugin::get_text_domain()
+              'greyrock-wordfence-cloudflare-synchroniser'
             )
           ),
           'error'
@@ -521,7 +521,7 @@ final class Fields {
           $scope,
           __(
             'The test IP address already exists in the Cloudflare account list. It was not modified.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
           'error'
         );
@@ -555,13 +555,13 @@ final class Fields {
       $create && $delete
         ? __(
           'The test block was created and removed successfully.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         )
         : self::client_error_message(
           $client,
           __(
             'The test block could not be created or removed.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           )
         ),
       $create && $delete ? 'updated' : 'error'
@@ -590,7 +590,7 @@ final class Fields {
         $scope,
         __(
           'Manual account-list management is available only in Account IP List mode.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         ),
         'error'
       );
@@ -603,7 +603,7 @@ final class Fields {
     if (!filter_var($ip, FILTER_VALIDATE_IP)) {
       self::redirect_with_message(
         $scope,
-        __('Enter a valid IPv4 or IPv6 address.', Plugin::get_text_domain()),
+        __('Enter a valid IPv4 or IPv6 address.', 'greyrock-wordfence-cloudflare-synchroniser'),
         'error'
       );
     }
@@ -615,7 +615,7 @@ final class Fields {
     if (!in_array($operation, ['add', 'remove'], true)) {
       self::redirect_with_message(
         $scope,
-        __('Select a valid list operation.', Plugin::get_text_domain()),
+        __('Select a valid list operation.', 'greyrock-wordfence-cloudflare-synchroniser'),
         'error'
       );
     }
@@ -633,7 +633,7 @@ final class Fields {
         $scope,
         __(
           'Enter a reason before adding the IP address.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         ),
         'error'
       );
@@ -663,7 +663,7 @@ final class Fields {
           $client,
           __(
             'The Cloudflare account list could not be resolved.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           )
         ),
         'error'
@@ -683,7 +683,7 @@ final class Fields {
           sprintf(
             __(
               'IP address %1$s already exists in Cloudflare list %2$s.',
-              Plugin::get_text_domain()
+              'greyrock-wordfence-cloudflare-synchroniser'
             ),
             $ip,
             $list_name
@@ -702,7 +702,7 @@ final class Fields {
       $success_message = sprintf(
         __(
           'IP address %1$s was added to Cloudflare list %2$s.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         ),
         $ip,
         $list_name
@@ -710,7 +710,7 @@ final class Fields {
 
       $failure_message = __(
         'The IP address could not be added to the Cloudflare list.',
-        Plugin::get_text_domain()
+        'greyrock-wordfence-cloudflare-synchroniser'
       );
     } else {
       $success = $client->remove_ip_from_account_list(
@@ -722,7 +722,7 @@ final class Fields {
       $success_message = sprintf(
         __(
           'IP address %1$s was removed from Cloudflare list %2$s.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         ),
         $ip,
         $list_name
@@ -730,7 +730,7 @@ final class Fields {
 
       $failure_message = __(
         'The IP address could not be removed from the Cloudflare list.',
-        Plugin::get_text_domain()
+        'greyrock-wordfence-cloudflare-synchroniser'
       );
     }
 
@@ -788,7 +788,7 @@ final class Fields {
           $site_url,
           $error !== ''
             ? $error
-            : __('Synchronization failed.', Plugin::get_text_domain())
+            : __('Synchronization failed.', 'greyrock-wordfence-cloudflare-synchroniser')
         );
       } finally {
         restore_current_blog();
@@ -800,7 +800,7 @@ final class Fields {
         'network',
         __(
           'No sites currently inherit the Network Admin configuration.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         ),
         'error'
       );
@@ -813,7 +813,7 @@ final class Fields {
           /* translators: 1: successful site count, 2: failed site details */
           __(
             'Network synchronization completed for %1$d site(s). Failures: %2$s',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
           $successful_sites,
           implode(' | ', $failed_sites)
@@ -828,7 +828,7 @@ final class Fields {
         /* translators: %d: number of synchronized sites */
         __(
           'Network synchronization completed successfully for %d site(s).',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         ),
         $successful_sites
       ),
@@ -851,12 +851,12 @@ final class Fields {
       $success
         ? __(
           'Synchronization completed successfully.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         )
         : (
           SyncScheduler::get_last_error_message() !== ''
             ? SyncScheduler::get_last_error_message()
-            : __('Synchronization failed.', Plugin::get_text_domain())
+            : __('Synchronization failed.', 'greyrock-wordfence-cloudflare-synchroniser')
         ),
       $success ? 'updated' : 'error'
     );
@@ -875,7 +875,7 @@ final class Fields {
         'site',
         __(
           'Cleanup is unavailable while this site inherits a shared Network Admin configuration.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         ),
         'error'
       );
@@ -885,7 +885,7 @@ final class Fields {
 
     self::redirect_with_message(
       'site',
-      __('Cleanup completed.', Plugin::get_text_domain()),
+      __('Cleanup completed.', 'greyrock-wordfence-cloudflare-synchroniser'),
       'updated'
     );
   }
@@ -903,7 +903,7 @@ final class Fields {
         'site',
         __(
           'Reconciliation is unavailable while this site inherits a shared Network Admin configuration.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         ),
         'error'
       );
@@ -948,7 +948,7 @@ final class Fields {
 
     if (!filter_var($ip, FILTER_VALIDATE_IP)) {
       self::redirect_manual_block(
-        __('Invalid IP address.', Plugin::get_text_domain()),
+        __('Invalid IP address.', 'greyrock-wordfence-cloudflare-synchroniser'),
         'error'
       );
     }
@@ -976,7 +976,7 @@ final class Fields {
             $client,
             __(
               'The Cloudflare account list could not be resolved.',
-              Plugin::get_text_domain()
+              'greyrock-wordfence-cloudflare-synchroniser'
             )
           ),
           'error'
@@ -1000,7 +1000,7 @@ final class Fields {
       BlockLogger::log($ip, 'manual: ' . $reason);
 
       self::redirect_manual_block(
-        __('IP address blocked successfully.', Plugin::get_text_domain()),
+        __('IP address blocked successfully.', 'greyrock-wordfence-cloudflare-synchroniser'),
         'updated'
       );
     }
@@ -1010,7 +1010,7 @@ final class Fields {
         $client,
         __(
           'The IP address could not be blocked.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         )
       ),
       'error'
@@ -1067,7 +1067,7 @@ final class Fields {
       wp_die(
         esc_html__(
           'You do not have permission to administer network firewall settings.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         )
       );
     }
@@ -1078,7 +1078,7 @@ final class Fields {
       wp_die(
         esc_html__(
           'You do not have permission to administer firewall settings.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         )
       );
     }

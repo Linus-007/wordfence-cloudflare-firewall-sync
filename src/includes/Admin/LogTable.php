@@ -17,8 +17,8 @@ final class LogTable extends WP_List_Table {
 
   public function __construct() {
     parent::__construct([
-      'singular' => __('Firewall Block', Plugin::get_text_domain()),
-      'plural' => __('Firewall Blocks', Plugin::get_text_domain()),
+      'singular' => __('Firewall Block', 'greyrock-wordfence-cloudflare-synchroniser'),
+      'plural' => __('Firewall Blocks', 'greyrock-wordfence-cloudflare-synchroniser'),
       'ajax' => false,
     ]);
   }
@@ -41,9 +41,9 @@ final class LogTable extends WP_List_Table {
 
   public function get_columns(): array {
     return [
-      'ip' => __('IP Address', Plugin::get_text_domain()),
-      'reason' => __('Reason', Plugin::get_text_domain()),
-      'created_at' => __('Created At', Plugin::get_text_domain()),
+      'ip' => __('IP Address', 'greyrock-wordfence-cloudflare-synchroniser'),
+      'reason' => __('Reason', 'greyrock-wordfence-cloudflare-synchroniser'),
+      'created_at' => __('Created At', 'greyrock-wordfence-cloudflare-synchroniser'),
     ];
   }
 
@@ -52,6 +52,6 @@ final class LogTable extends WP_List_Table {
   }
 
   public function no_items(): void {
-    echo '<p>' . __('No firewall blocks found.', Plugin::get_text_domain()) . '</p>';
+    echo '<p>' . __('No firewall blocks found.', 'greyrock-wordfence-cloudflare-synchroniser') . '</p>';
   }
 }
