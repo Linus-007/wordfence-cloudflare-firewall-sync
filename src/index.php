@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Greyscale Zone Wordfence Cloudflare Firewall Sync
+ * Plugin Name: Greyrock Wordfence-Cloudflare Synchroniser
  * Plugin URI: https://greyscale.zone/
- * Description: Sync Wordfence IP blocks to Cloudflare Zone Access Rules or a Cloudflare account-level IP list.
+ * Description: Synchronises Wordfence IP blocks with Cloudflare Zone Access Rules or a Cloudflare account-level IP list.
  * Version: 1.1.1
  * Author: Greyscale Zone
  * Author URI: https://greyscale.zone/

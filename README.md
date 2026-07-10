@@ -1,12 +1,28 @@
-# Greyscale Zone Wordfence Cloudflare Firewall Sync
+# Greyrock Wordfence-Cloudflare Synchroniser
 
-Synchronises IP addresses blocked by Wordfence with Cloudflare so unwanted traffic can be stopped at Cloudflare's network edge before it reaches the WordPress server.
+Greyrock Wordfence-Cloudflare Synchroniser synchronises IP addresses blocked by Wordfence with Cloudflare so unwanted traffic can be stopped at Cloudflare's network edge before it reaches the WordPress server.
 
 ![Version](https://img.shields.io/badge/version-1.1.1-blue)
 ![Built for WordPress](https://img.shields.io/badge/WordPress-6.0+-blueviolet)
 ![Licence](https://img.shields.io/badge/licence-GPLv2-blue)
 
 > **Important:** This plugin is not affiliated with Wordfence or Cloudflare.
+
+## Name and identity
+
+**Greyrock Wordfence-Cloudflare Synchroniser** is developed by Greyscale Zone.
+
+The name *Greyrock* reflects the defensive principle of remaining unresponsive and unrewarding to hostile or manipulative behaviour. Automated attackers similarly depend on finding systems that respond predictably or expose useful weaknesses. The plugin applies that concept by moving Wordfence block intelligence to Cloudflare's network edge.
+
+The existing technical identifiers are intentionally retained for compatibility:
+
+- plugin directory: `wordfence-cloudflare-firewall-sync`;
+- main plugin file: `index.php`;
+- GitHub repository: `wordfence-cloudflare-firewall-sync`;
+- release ZIP: `wordfence-cloudflare-firewall-sync.zip`;
+- WordPress option names, hooks, database table names and text domain.
+
+Retaining these identifiers allows WordPress to recognise an upgrade as the same installed plugin rather than a different plugin.
 
 ## What the plugin does
 

@@ -435,7 +435,7 @@ final class Fields {
         $account_id,
         $list_id,
         $ip,
-        'Greyscale Zone firewall sync test'
+        'Greyrock Wordfence-Cloudflare Synchroniser test'
       );
 
       $delete = $create
@@ -448,7 +448,7 @@ final class Fields {
     } else {
       $create = $client->create_block(
         $ip,
-        'Greyscale Zone firewall sync test'
+        'Greyrock Wordfence-Cloudflare Synchroniser test'
       );
 
       $delete = $create ? $client->delete_block($ip) : false;

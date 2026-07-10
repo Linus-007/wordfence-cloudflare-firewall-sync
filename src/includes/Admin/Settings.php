@@ -97,8 +97,8 @@ final class Settings {
 
   public static function add_site_settings_page(): void {
     add_menu_page(
-      __('Firewall Sync', Plugin::get_text_domain()),
-      __('Firewall Sync', Plugin::get_text_domain()),
+      __('Greyrock Synchroniser', Plugin::get_text_domain()),
+      __('Greyrock Synchroniser', Plugin::get_text_domain()),
       'manage_options',
       'firewall-sync-settings',
       [self::class, 'render_settings'],
@@ -131,8 +131,8 @@ final class Settings {
     }
 
     add_menu_page(
-      __('Firewall Sync', Plugin::get_text_domain()),
-      __('Firewall Sync', Plugin::get_text_domain()),
+      __('Greyrock Synchroniser', Plugin::get_text_domain()),
+      __('Greyrock Synchroniser', Plugin::get_text_domain()),
       'manage_network_options',
       'firewall-sync-settings',
       [self::class, 'render_settings'],
@@ -158,7 +158,7 @@ final class Settings {
     if (is_network_admin()) {
       wp_die(
         esc_html__(
-          'Block logs are site-specific. Open the Firewall Sync page within an individual site.',
+          'Block logs are site-specific. Open Greyrock Synchroniser within an individual site.',
           Plugin::get_text_domain()
         )
       );
@@ -168,7 +168,7 @@ final class Settings {
     $log_table->prepare_items();
     ?>
     <div class="wrap">
-      <h1><?php echo esc_html(__('Firewall Sync Log', Plugin::get_text_domain())); ?></h1>
+      <h1><?php echo esc_html(__('Greyrock Synchronisation Log', Plugin::get_text_domain())); ?></h1>
       <?php $log_table->display(); ?>
     </div>
     <?php
@@ -525,7 +525,7 @@ final class Settings {
     if (is_network_admin()) {
       wp_die(
         esc_html__(
-          'Manual blocks are site-specific. Open Firewall Sync within an individual site.',
+          'Manual blocks are site-specific. Open Greyrock Synchroniser within an individual site.',
           Plugin::get_text_domain()
         )
       );
