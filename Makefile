@@ -17,8 +17,8 @@ help:
 	  '  make validate' \
 	  '  make build' \
 	  '  make wordpress-org' \
-	  '  make release VERSION=1.1.6' \
-	  '  make tag-release VERSION=1.1.6' \
+	  '  make release VERSION=1.1.7' \
+	  '  make tag-release VERSION=1.1.7' \
 	  '  make clean' \
 	  '  make pot'
 
@@ -39,7 +39,7 @@ validate:
 
 version-check:
 	@if [ -z "$(VERSION)" ]; then \
-	  echo "VERSION is required. Example: make release VERSION=1.1.6"; \
+	  echo "VERSION is required. Example: make release VERSION=1.1.7"; \
 	  exit 1; \
 	fi
 	@if ! printf '%s\n' "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \

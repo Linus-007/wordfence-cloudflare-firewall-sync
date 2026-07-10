@@ -237,6 +237,7 @@ final class Client {
       $this->fail(
         'resolve_account_list',
         sprintf(
+          /* translators: %s: Cloudflare list name. */
           __(
             'Cloudflare IP list "%s" was not found in this account.',
             'greyrock-wordfence-cloudflare-synchroniser'
@@ -252,6 +253,7 @@ final class Client {
       $this->fail(
         'resolve_account_list',
         sprintf(
+          /* translators: %s: Cloudflare list name. */
           __(
             'Cloudflare returned more than one list named "%s".',
             'greyrock-wordfence-cloudflare-synchroniser'
@@ -282,6 +284,7 @@ final class Client {
       $this->fail(
         'resolve_account_list',
         sprintf(
+          /* translators: %s: Cloudflare list name. */
           __(
             'Cloudflare list "%s" is not an IP list.',
             'greyrock-wordfence-cloudflare-synchroniser'

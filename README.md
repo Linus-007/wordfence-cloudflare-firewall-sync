@@ -2,7 +2,7 @@
 
 Greyrock Wordfence-Cloudflare Synchroniser synchronises IP addresses blocked by Wordfence with Cloudflare so unwanted traffic can be stopped at Cloudflare's network edge before it reaches the WordPress server.
 
-![Version](https://img.shields.io/badge/version-1.1.6-blue)
+![Version](https://img.shields.io/badge/version-1.1.7-blue)
 ![Tested with WordPress 7.0.1](https://img.shields.io/badge/WordPress-7.0.1-tested-blueviolet)
 ![Licence](https://img.shields.io/badge/licence-GPLv2-blue)
 
@@ -462,7 +462,7 @@ The WordPress.org package uses:
 
 Build both packages with:
 
-    make release VERSION=1.1.6
+    make release VERSION=1.1.7
 
 
 
