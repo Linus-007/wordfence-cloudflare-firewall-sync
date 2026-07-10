@@ -98,15 +98,6 @@ final class SyncScheduler {
       return false;
     }
 
-    if (!class_exists('\wfBlock')) {
-      self::$lastErrorMessage = __(
-        'Wordfence block data is unavailable.',
-        Plugin::get_text_domain()
-      );
-
-      return false;
-    }
-
     $client = new Client($token, $zone);
     $list_id = '';
 
@@ -126,18 +117,41 @@ final class SyncScheduler {
       $list_id = $resolved_list_id;
     }
 
-    $blocks = \wfBlock::getBlocks();
-    $batch = [];
+    /*
+     * Wordfence has changed the internal wfBlock API between releases.
+     * Some versions define wfBlock without providing getBlocks(). Treat
+     * active-block retrieval as optional so historical wp_wfhits records
+     * can still be synchronized without causing a fatal error.
+     */
+    $blocks = [];
+
+    if (
+      class_exists('\wfBlock')
+      && method_exists('\wfBlock', 'getBlocks')
+    ) {
+      $wordfence_blocks = \wfBlock::getBlocks();
+
+      if (is_array($wordfence_blocks)) {
+        $blocks = $wordfence_blocks;
+      }
+    }
+
+    /*
+     * Key the batch by IP so active Wordfence blocks and historical WAF
+     * events cannot create duplicate Cloudflare operations.
+     */
+    $batch_by_ip = [];
 
     foreach ($blocks as $block) {
-      $ip = $block['ip'] ?? null;
+      $ip = (string) ($block['ip'] ?? '');
       $reason = $block['reason']
         ?? __('Unknown', Plugin::get_text_domain());
       $expiration = (int) ($block['expirationUnix'] ?? 0);
       $is_permanent = !empty($block['permanent']);
 
       if (
-        !$ip
+        $ip === ''
+        || !filter_var($ip, FILTER_VALIDATE_IP)
         || (!$is_permanent && $expiration > 0 && time() > $expiration)
         || BlockLogger::has_synced($ip)
         || BlockLogger::is_blacklisted($ip)
@@ -155,12 +169,72 @@ final class SyncScheduler {
         );
       }
 
-      $batch[] = [
+      $batch_by_ip[$ip] = [
         'ip' => $ip,
         'reason' => (string) $reason,
         'expires_at' => $expires_at,
       ];
     }
+
+    $lookback_hours = (int) (
+      $options['historical_lookback_hours'] ?? 24
+    );
+
+    $minimum_events = (int) (
+      $options['historical_minimum_events'] ?? 1
+    );
+
+    $historical_blocks = HistoricalBlockReader::get_candidates(
+      $lookback_hours,
+      $minimum_events
+    );
+
+    foreach ($historical_blocks as $historical_block) {
+      $ip = (string) ($historical_block['ip'] ?? '');
+      $event_count = (int) (
+        $historical_block['event_count'] ?? 0
+      );
+
+      $latest_event = (int) (
+        $historical_block['latest_event'] ?? 0
+      );
+
+      if (
+        $ip === ''
+        || isset($batch_by_ip[$ip])
+        || BlockLogger::has_synced($ip)
+        || BlockLogger::is_blacklisted($ip)
+      ) {
+        continue;
+      }
+
+      $expires_at = null;
+
+      if ($latest_event > 0) {
+        $expires_at = wp_date(
+          'Y-m-d H:i:s',
+          $latest_event + ($lookback_hours * HOUR_IN_SECONDS),
+          wp_timezone()
+        );
+      }
+
+      $batch_by_ip[$ip] = [
+        'ip' => $ip,
+        'reason' => sprintf(
+          /* translators: %d: number of Wordfence blocked WAF events */
+          _n(
+            'Wordfence historical WAF block: %d event',
+            'Wordfence historical WAF block: %d events',
+            $event_count,
+            Plugin::get_text_domain()
+          ),
+          $event_count
+        ),
+        'expires_at' => $expires_at,
+      ];
+    }
+
+    $batch = array_values($batch_by_ip);
 
     if ($mode === 'account_list') {
       $failed = $client->batch_add_ips_to_account_list(

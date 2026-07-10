@@ -2,8 +2,8 @@
 
 Greyrock Wordfence-Cloudflare Synchroniser synchronises IP addresses blocked by Wordfence with Cloudflare so unwanted traffic can be stopped at Cloudflare's network edge before it reaches the WordPress server.
 
-![Version](https://img.shields.io/badge/version-1.1.2-blue)
-![Built for WordPress](https://img.shields.io/badge/WordPress-6.0+-blueviolet)
+![Version](https://img.shields.io/badge/version-1.1.5-blue)
+![Tested with WordPress 7.0.1](https://img.shields.io/badge/WordPress-7.0.1-tested-blueviolet)
 ![Licence](https://img.shields.io/badge/licence-GPLv2-blue)
 
 > **Important:** This plugin is not affiliated with Wordfence or Cloudflare.
@@ -26,7 +26,18 @@ Retaining these identifiers allows WordPress to recognise an upgrade as the same
 
 ## What the plugin does
 
-The plugin reads IP addresses blocked by Wordfence and sends them to Cloudflare using one of two modes.
+The plugin reads current Wordfence blocks and historical Wordfence WAF events recorded as `blocked:waf`, then sends qualifying public IP addresses to Cloudflare using one of two modes.
+
+The plugin does not assume that a particular private Wordfence PHP method is available. When the installed Wordfence version does not expose its active-block API, Greyrock continues using the verified historical WAF event table instead of terminating synchronization.
+
+Historical synchronization is configurable:
+
+- lookback period: 1, 3, 6, 12 or 24 hours;
+- minimum blocked events per IP address: 1 through 100;
+- default lookback: 24 hours;
+- default threshold: 1 event.
+
+Repeated events from the same address are deduplicated before synchronization. Private, reserved and invalid addresses are rejected.
 
 ### Zone Access Rules
 
@@ -41,6 +52,12 @@ Adds addresses to a reusable account-level Cloudflare IP list.
 Use this mode when several domains or Cloudflare zones should share the same list.
 
 **An Account IP List does not block traffic by itself.** You must create a Cloudflare Custom Rule in every zone that should use the list.
+
+## Compatibility
+
+- Requires WordPress 6.0 or later.
+- Tested with WordPress 7.0.1.
+- Requires PHP 8.1 or later.
 
 ## Requirements
 
@@ -89,6 +106,18 @@ wordfence-cloudflare-firewall-sync/
 ├── includes/
 └── languages/
 ```
+
+## Multisite administration
+
+When the plugin is network activated:
+
+- **Network Admin** manages the shared Cloudflare configuration.
+- **Synchronise Network Now** processes every site that inherits the Network Admin configuration.
+- Sites using independent site-specific settings are excluded from the network action.
+- Each site retains its own **Synchronisation Log** and **Manual IP Block** pages.
+- Network Admin provides a combined **Synchronisation Log** containing recent records from all sites.
+- Manual Account List Management requires a reason when adding an address and stores that reason with the Cloudflare list item.
+- Cleanup and reconciliation remain available only where the Cloudflare destination and synchronization ownership records are isolated to one site.
 
 ## Cloudflare API token permissions
 

@@ -6,6 +6,7 @@ namespace WPCF\FirewallSync\Admin;
 
 use WPCF\FirewallSync\Config;
 use WPCF\FirewallSync\Plugin;
+use WPCF\FirewallSync\Services\BlockLogger;
 
 final class Settings {
   public static function register(): void {
@@ -139,6 +140,15 @@ final class Settings {
       'dashicons-shield-alt',
       81
     );
+
+    add_submenu_page(
+      'firewall-sync-settings',
+      __('Synchronisation Log', Plugin::get_text_domain()),
+      __('Synchronisation Log', Plugin::get_text_domain()),
+      'manage_network_options',
+      'firewall-sync-network-log',
+      [self::class, 'render_network_log']
+    );
   }
 
   public static function enqueue_styles(string $hook_suffix): void {
@@ -152,6 +162,154 @@ final class Settings {
       [],
       WPCF_FS_VERSION
     );
+  }
+
+  public static function render_network_log(): void {
+    if (
+      !is_multisite()
+      || !is_network_admin()
+      || !current_user_can('manage_network_options')
+    ) {
+      wp_die(
+        esc_html__(
+          'You do not have permission to view the network synchronisation log.',
+          Plugin::get_text_domain()
+        )
+      );
+    }
+
+    $rows = [];
+
+    foreach (get_sites(['fields' => 'ids']) as $blog_id) {
+      switch_to_blog((int) $blog_id);
+
+      try {
+        $site_name = get_bloginfo('name');
+        $site_url = home_url('/');
+
+        foreach (BlockLogger::get_logs(100, 0) as $log) {
+          $rows[] = [
+            'site_name' => $site_name !== ''
+              ? $site_name
+              : $site_url,
+            'site_url' => $site_url,
+            'ip' => (string) ($log['ip'] ?? ''),
+            'reason' => (string) ($log['reason'] ?? ''),
+            'created_at' => (string) ($log['created_at'] ?? ''),
+          ];
+        }
+      } finally {
+        restore_current_blog();
+      }
+    }
+
+    usort(
+      $rows,
+      static function (array $left, array $right): int {
+        return strcmp(
+          (string) ($right['created_at'] ?? ''),
+          (string) ($left['created_at'] ?? '')
+        );
+      }
+    );
+
+    $rows = array_slice($rows, 0, 500);
+    ?>
+    <div class="wrap">
+      <h1>
+        <?php
+        echo esc_html__(
+          'Network Synchronisation Log',
+          Plugin::get_text_domain()
+        );
+        ?>
+      </h1>
+
+      <p>
+        <?php
+        echo esc_html__(
+          'This page combines the most recent site-specific Greyrock synchronisation records from across the multisite network.',
+          Plugin::get_text_domain()
+        );
+        ?>
+      </p>
+
+      <?php if (empty($rows)): ?>
+        <p>
+          <?php
+          echo esc_html__(
+            'No synchronisation records were found.',
+            Plugin::get_text_domain()
+          );
+          ?>
+        </p>
+      <?php else: ?>
+        <table class="widefat striped">
+          <thead>
+            <tr>
+              <th scope="col">
+                <?php
+                echo esc_html__(
+                  'Site',
+                  Plugin::get_text_domain()
+                );
+                ?>
+              </th>
+              <th scope="col">
+                <?php
+                echo esc_html__(
+                  'IP Address',
+                  Plugin::get_text_domain()
+                );
+                ?>
+              </th>
+              <th scope="col">
+                <?php
+                echo esc_html__(
+                  'Reason',
+                  Plugin::get_text_domain()
+                );
+                ?>
+              </th>
+              <th scope="col">
+                <?php
+                echo esc_html__(
+                  'Recorded',
+                  Plugin::get_text_domain()
+                );
+                ?>
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <?php foreach ($rows as $row): ?>
+              <tr>
+                <td>
+                  <a
+                    href="<?php echo esc_url($row['site_url']); ?>"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <?php echo esc_html($row['site_name']); ?>
+                  </a>
+                </td>
+                <td>
+                  <code><?php echo esc_html($row['ip']); ?></code>
+                </td>
+                <td>
+                  <?php echo esc_html($row['reason']); ?>
+                </td>
+                <td>
+                  <?php echo esc_html($row['created_at']); ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      <?php endif; ?>
+    </div>
+    <?php
   }
 
   public static function render_log(): void {
@@ -297,7 +455,61 @@ final class Settings {
 
       <?php self::render_manual_list_management($scope); ?>
 
-      <?php if (!$network_context): ?>
+      <?php if ($network_context): ?>
+        <hr>
+
+        <div class="firewall-sync-actions">
+          <h2>
+            <?php
+            echo esc_html__(
+              'Network Actions',
+              Plugin::get_text_domain()
+            );
+            ?>
+          </h2>
+
+          <p>
+            <?php
+            echo esc_html__(
+              'Synchronize every site that currently inherits the Network Admin configuration. Sites using independent site-specific settings are not included.',
+              Plugin::get_text_domain()
+            );
+            ?>
+          </p>
+
+          <form
+            method="post"
+            action="<?php echo esc_url(admin_url('admin-post.php')); ?>"
+            class="firewall-sync-form"
+          >
+            <?php
+            wp_nonce_field(
+              'firewall_sync_network_sync_now',
+              'firewall_sync_network_sync_now_nonce'
+            );
+            ?>
+
+            <input
+              type="hidden"
+              name="action"
+              value="firewall_sync_network_sync_now"
+            >
+
+            <?php
+            submit_button(
+              __(
+                'Synchronise Network Now',
+                Plugin::get_text_domain()
+              ),
+              'primary',
+              'submit',
+              false
+            );
+            ?>
+          </form>
+
+        </div>
+      <?php else: ?>
         <?php
         $sync_disabled = get_option('firewall_sync_is_running') ? 'disabled' : '';
         $last_sync = get_option('firewall_sync_last_run');
@@ -445,6 +657,38 @@ final class Settings {
             class="regular-text"
             required
           >
+        </p>
+
+        <p>
+          <label for="firewall_sync_manual_list_reason">
+            <strong>
+              <?php
+              echo esc_html__(
+                'Reason',
+                Plugin::get_text_domain()
+              );
+              ?>
+            </strong>
+          </label>
+        </p>
+
+        <p>
+          <input
+            type="text"
+            id="firewall_sync_manual_list_reason"
+            name="firewall_sync_manual_list_reason"
+            class="regular-text"
+            maxlength="200"
+          >
+        </p>
+
+        <p class="description">
+          <?php
+          echo esc_html__(
+            'Required when adding an address. The reason is stored with the Cloudflare list item. It is not required when removing an address.',
+            Plugin::get_text_domain()
+          );
+          ?>
         </p>
 
         <p class="firewall-sync-manual-list-buttons">

@@ -122,6 +122,32 @@ final class Config {
       ? (string) $interval
       : '60';
 
+    $lookback_hours = filter_var(
+      $input['historical_lookback_hours'] ?? 24,
+      FILTER_VALIDATE_INT
+    );
+
+    $output['historical_lookback_hours'] = in_array(
+      $lookback_hours,
+      [1, 3, 6, 12, 24],
+      true
+    )
+      ? (string) $lookback_hours
+      : '24';
+
+    $minimum_events = filter_var(
+      $input['historical_minimum_events'] ?? 1,
+      FILTER_VALIDATE_INT
+    );
+
+    $output['historical_minimum_events'] = (
+      $minimum_events !== false
+      && $minimum_events >= 1
+      && $minimum_events <= 100
+    )
+      ? (string) $minimum_events
+      : '1';
+
     if ($network) {
       $output['allow_site_overrides'] =
         !empty($input['allow_site_overrides']) ? '1' : '0';
@@ -233,6 +259,8 @@ final class Config {
       'cloudflare_list_name',
       'cloudflare_mode',
       'sync_interval',
+      'historical_lookback_hours',
+      'historical_minimum_events',
     ] as $key) {
       if (isset($options[$key]) && $options[$key] !== '') {
         return true;

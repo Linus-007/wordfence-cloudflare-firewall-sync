@@ -41,6 +41,11 @@ final class Fields {
     );
 
     add_action(
+      'admin_post_firewall_sync_network_sync_now',
+      [self::class, 'handle_network_sync_now']
+    );
+
+    add_action(
       'admin_post_firewall_sync_cleanup_now',
       [self::class, 'handle_cleanup_now']
     );
@@ -99,6 +104,8 @@ final class Fields {
     );
 
     self::add_sync_interval_field();
+    self::add_historical_lookback_field();
+    self::add_historical_minimum_events_field();
   }
 
   private static function add_allow_site_overrides_field(): void {
@@ -255,6 +262,81 @@ final class Fields {
           echo esc_html($descriptions[$name]);
           echo '</p>';
         }
+      },
+      'firewall-sync-settings',
+      'firewall_sync_main_section'
+    );
+  }
+
+  private static function add_historical_lookback_field(): void {
+    add_settings_field(
+      'historical_lookback_hours',
+      __('Historical WAF lookback', Plugin::get_text_domain()),
+      static function (): void {
+        $options = Config::get_admin_options();
+        $value = (string) (
+          $options['historical_lookback_hours'] ?? '24'
+        );
+
+        $disabled = self::configuration_fields_disabled();
+
+        printf(
+          '<select id="historical_lookback_hours" name="firewall_sync_options[historical_lookback_hours]"%1$s>
+            <option value="1"%2$s>%3$s</option>
+            <option value="3"%4$s>%5$s</option>
+            <option value="6"%6$s>%7$s</option>
+            <option value="12"%8$s>%9$s</option>
+            <option value="24"%10$s>%11$s</option>
+          </select>',
+          disabled($disabled, true, false),
+          selected($value, '1', false),
+          esc_html__('1 hour', Plugin::get_text_domain()),
+          selected($value, '3', false),
+          esc_html__('3 hours', Plugin::get_text_domain()),
+          selected($value, '6', false),
+          esc_html__('6 hours', Plugin::get_text_domain()),
+          selected($value, '12', false),
+          esc_html__('12 hours', Plugin::get_text_domain()),
+          selected($value, '24', false),
+          esc_html__('24 hours', Plugin::get_text_domain())
+        );
+
+        echo '<p class="description">';
+        echo esc_html__(
+          'Also import Wordfence Live Traffic events recorded as blocked:waf during this period.',
+          Plugin::get_text_domain()
+        );
+        echo '</p>';
+      },
+      'firewall-sync-settings',
+      'firewall_sync_main_section'
+    );
+  }
+
+  private static function add_historical_minimum_events_field(): void {
+    add_settings_field(
+      'historical_minimum_events',
+      __('Historical block threshold', Plugin::get_text_domain()),
+      static function (): void {
+        $options = Config::get_admin_options();
+        $value = (string) (
+          $options['historical_minimum_events'] ?? '1'
+        );
+
+        $disabled = self::configuration_fields_disabled();
+
+        printf(
+          '<input type="number" id="historical_minimum_events" name="firewall_sync_options[historical_minimum_events]" value="%1$s" min="1" max="100" step="1" class="small-text" inputmode="numeric"%2$s>',
+          esc_attr($value),
+          disabled($disabled, true, false)
+        );
+
+        echo '<p class="description">';
+        echo esc_html__(
+          'Minimum blocked:waf events required from one IP address during the lookback period. Whole numbers from 1 through 100 are accepted.',
+          Plugin::get_text_domain()
+        );
+        echo '</p>';
       },
       'firewall-sync-settings',
       'firewall_sync_main_section'
@@ -538,6 +620,25 @@ final class Fields {
       );
     }
 
+    $reason = sanitize_text_field(
+      wp_unslash(
+        $_POST['firewall_sync_manual_list_reason'] ?? ''
+      )
+    );
+
+    $reason = substr($reason, 0, 200);
+
+    if ($operation === 'add' && $reason === '') {
+      self::redirect_with_message(
+        $scope,
+        __(
+          'Enter a reason before adding the IP address.',
+          Plugin::get_text_domain()
+        ),
+        'error'
+      );
+    }
+
     $client = new Client(
       $options['cloudflare_api_token'] ?? '',
       $options['cloudflare_zone_id'] ?? ''
@@ -595,7 +696,7 @@ final class Fields {
         $account_id,
         $list_id,
         $ip,
-        'Manual Greyrock block'
+        'Manual Greyrock block: ' . $reason
       );
 
       $success_message = sprintf(
@@ -642,6 +743,96 @@ final class Fields {
           $failure_message
         ),
       $success ? 'updated' : 'error'
+    );
+  }
+
+  public static function handle_network_sync_now(): void {
+    self::require_network_capability();
+
+    check_admin_referer(
+      'firewall_sync_network_sync_now',
+      'firewall_sync_network_sync_now_nonce'
+    );
+
+    $successful_sites = 0;
+    $failed_sites = [];
+    $processed_sites = 0;
+
+    foreach (get_sites(['fields' => 'ids']) as $blog_id) {
+      switch_to_blog((int) $blog_id);
+
+      try {
+        /*
+         * Network synchronization applies only to sites inheriting the
+         * Network Admin configuration. Sites with independent settings
+         * continue to use their own site-level controls and schedules.
+         */
+        if (!Config::uses_network_options()) {
+          continue;
+        }
+
+        $processed_sites++;
+
+        if (SyncScheduler::run_now()) {
+          $successful_sites++;
+          continue;
+        }
+
+        $site_name = get_bloginfo('name');
+        $site_url = home_url('/');
+        $error = SyncScheduler::get_last_error_message();
+
+        $failed_sites[] = sprintf(
+          '%1$s (%2$s): %3$s',
+          $site_name !== '' ? $site_name : $site_url,
+          $site_url,
+          $error !== ''
+            ? $error
+            : __('Synchronization failed.', Plugin::get_text_domain())
+        );
+      } finally {
+        restore_current_blog();
+      }
+    }
+
+    if ($processed_sites === 0) {
+      self::redirect_with_message(
+        'network',
+        __(
+          'No sites currently inherit the Network Admin configuration.',
+          Plugin::get_text_domain()
+        ),
+        'error'
+      );
+    }
+
+    if (!empty($failed_sites)) {
+      self::redirect_with_message(
+        'network',
+        sprintf(
+          /* translators: 1: successful site count, 2: failed site details */
+          __(
+            'Network synchronization completed for %1$d site(s). Failures: %2$s',
+            Plugin::get_text_domain()
+          ),
+          $successful_sites,
+          implode(' | ', $failed_sites)
+        ),
+        'error'
+      );
+    }
+
+    self::redirect_with_message(
+      'network',
+      sprintf(
+        /* translators: %d: number of synchronized sites */
+        __(
+          'Network synchronization completed successfully for %d site(s).',
+          Plugin::get_text_domain()
+        ),
+        $successful_sites
+      ),
+      'updated'
     );
   }
 
