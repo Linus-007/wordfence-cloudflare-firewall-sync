@@ -1,15 +1,17 @@
 <?php
 /**
  * Plugin Name: Greyrock Wordfence-Cloudflare Synchroniser
- * Plugin URI: https://greyscale.zone/
- * Description: Synchronises Wordfence IP blocks with Cloudflare Zone Access Rules or a Cloudflare account-level IP list.
- * Version: 1.1.5
+ * Plugin URI: https://github.com/Linus-007/greyrock-wordfence-cloudflare-synchroniser
+ * Description: Synchronises current and historical Wordfence firewall blocks with Cloudflare Zone Access Rules or an account-level IP list.
+ * Version: 1.1.6
  * Requires at least: 6.0
  * Tested up to: 7.0
  * Requires PHP: 8.1
  * Author: Greyscale Zone
  * Author URI: https://greyscale.zone/
- * Text Domain: wordpress-cloudflare-sync
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: greyrock-wordfence-cloudflare-synchroniser
  * Domain Path: /languages
  */
 

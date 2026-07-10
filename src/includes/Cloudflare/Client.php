@@ -44,7 +44,7 @@ final class Client {
     if ($this->zone === '') {
       return $this->fail(
         'validate_zone',
-        __('Cloudflare Zone ID is required.', Plugin::get_text_domain())
+        __('Cloudflare Zone ID is required.', 'greyrock-wordfence-cloudflare-synchroniser')
       );
     }
 
@@ -92,7 +92,7 @@ final class Client {
     if ($account_id === '') {
       $this->fail(
         'resolve_account_list',
-        __('Cloudflare Account ID is required.', Plugin::get_text_domain())
+        __('Cloudflare Account ID is required.', 'greyrock-wordfence-cloudflare-synchroniser')
       );
 
       return null;
@@ -102,7 +102,7 @@ final class Client {
       if ($legacy_list_id === '') {
         $this->fail(
           'resolve_account_list',
-          __('Cloudflare List Name is required.', Plugin::get_text_domain())
+          __('Cloudflare List Name is required.', 'greyrock-wordfence-cloudflare-synchroniser')
         );
 
         return null;
@@ -139,7 +139,7 @@ final class Client {
           'validate_legacy_account_list',
           __(
             'The stored Cloudflare list is not an IP list.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           )
         );
 
@@ -157,7 +157,7 @@ final class Client {
         'resolve_account_list',
         __(
           'Cloudflare List Name may contain only lowercase letters, numbers and underscores.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         )
       );
 
@@ -207,7 +207,7 @@ final class Client {
           'list_account_lists',
           __(
             'Cloudflare returned an invalid account-list response.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           )
         );
 
@@ -239,7 +239,7 @@ final class Client {
         sprintf(
           __(
             'Cloudflare IP list "%s" was not found in this account.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
           $list_name
         )
@@ -254,7 +254,7 @@ final class Client {
         sprintf(
           __(
             'Cloudflare returned more than one list named "%s".',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
           $list_name
         )
@@ -271,7 +271,7 @@ final class Client {
         'resolve_account_list',
         __(
           'Cloudflare returned a list without an internal ID.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         )
       );
 
@@ -284,7 +284,7 @@ final class Client {
         sprintf(
           __(
             'Cloudflare list "%s" is not an IP list.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
           $list_name
         )
@@ -435,7 +435,7 @@ final class Client {
 
       $reason = (string) (
         $entry['reason']
-        ?? __('Unknown', Plugin::get_text_domain())
+        ?? __('Unknown', 'greyrock-wordfence-cloudflare-synchroniser')
       );
 
       $added = $this->create_account_list_item(
@@ -530,7 +530,7 @@ final class Client {
           'remove_account_list_item',
           __(
             'Cloudflare did not expose the newly added list item in time for deletion. Remove it manually or try again.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           )
         );
       }
@@ -681,7 +681,7 @@ final class Client {
           'read_account_list',
           __(
             'Cloudflare returned an invalid account-list response.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           )
         );
 
@@ -738,14 +738,14 @@ final class Client {
     if (!filter_var($ip, FILTER_VALIDATE_IP)) {
       return $this->fail(
         'create_zone_access_rule',
-        __('Invalid IP address.', Plugin::get_text_domain())
+        __('Invalid IP address.', 'greyrock-wordfence-cloudflare-synchroniser')
       );
     }
 
     if ($this->zone === '') {
       return $this->fail(
         'create_zone_access_rule',
-        __('Cloudflare Zone ID is required.', Plugin::get_text_domain())
+        __('Cloudflare Zone ID is required.', 'greyrock-wordfence-cloudflare-synchroniser')
       );
     }
 
@@ -762,7 +762,7 @@ final class Client {
         ? $notes
         : __(
           'Wordfence Sync Block',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         ),
     ];
 
@@ -784,14 +784,14 @@ final class Client {
     if (!filter_var($ip, FILTER_VALIDATE_IP)) {
       return $this->fail(
         'delete_zone_access_rule',
-        __('Invalid IP address.', Plugin::get_text_domain())
+        __('Invalid IP address.', 'greyrock-wordfence-cloudflare-synchroniser')
       );
     }
 
     if ($this->zone === '') {
       return $this->fail(
         'delete_zone_access_rule',
-        __('Cloudflare Zone ID is required.', Plugin::get_text_domain())
+        __('Cloudflare Zone ID is required.', 'greyrock-wordfence-cloudflare-synchroniser')
       );
     }
 
@@ -828,7 +828,7 @@ final class Client {
         'find_zone_access_rule',
         __(
           'Cloudflare returned an invalid access-rule response.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         )
       );
     }
@@ -878,7 +878,7 @@ final class Client {
 
     $message = sprintf(
       /* translators: 1: Cloudflare operation, 2: error message */
-      __('Cloudflare %1$s failed: %2$s', Plugin::get_text_domain()),
+      __('Cloudflare %1$s failed: %2$s', 'greyrock-wordfence-cloudflare-synchroniser'),
       $operation,
       $this->lastError['message']
     );
@@ -886,7 +886,7 @@ final class Client {
     if ($this->lastError['http_code'] !== null) {
       $message .= sprintf(
         /* translators: %d: HTTP response code */
-        __(' (HTTP %d)', Plugin::get_text_domain()),
+        __(' (HTTP %d)', 'greyrock-wordfence-cloudflare-synchroniser'),
         $this->lastError['http_code']
       );
     }
@@ -988,7 +988,7 @@ final class Client {
         ? $response_message
         : __(
           'Cloudflare returned an unsuccessful response.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         );
     }
 
@@ -1058,7 +1058,7 @@ final class Client {
         continue;
       }
 
-      $notes = __('Wordfence Sync', Plugin::get_text_domain()) . ': ' . ($entry['reason'] ?? __('Unknown', Plugin::get_text_domain()));
+      $notes = __('Wordfence Sync', 'greyrock-wordfence-cloudflare-synchroniser') . ': ' . ($entry['reason'] ?? __('Unknown', 'greyrock-wordfence-cloudflare-synchroniser'));
 
       if (!$this->create_block($ip, $notes)) {
         $failed[] = $ip;

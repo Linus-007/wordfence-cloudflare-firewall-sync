@@ -46,12 +46,12 @@ final class SyncScheduler {
   public static function custom_intervals(array $schedules): array {
     $schedules['every_5_minutes'] = [
       'interval' => 300,
-      'display' => __('Every 5 Minutes', Plugin::get_text_domain()),
+      'display' => __('Every 5 Minutes', 'greyrock-wordfence-cloudflare-synchroniser'),
     ];
 
     $schedules['every_15_minutes'] = [
       'interval' => 900,
-      'display' => __('Every 15 Minutes', Plugin::get_text_domain()),
+      'display' => __('Every 15 Minutes', 'greyrock-wordfence-cloudflare-synchroniser'),
     ];
 
     return $schedules;
@@ -71,7 +71,7 @@ final class SyncScheduler {
     if (empty($token)) {
       self::$lastErrorMessage = __(
         'Cloudflare API Token is required.',
-        Plugin::get_text_domain()
+        'greyrock-wordfence-cloudflare-synchroniser'
       );
 
       return false;
@@ -84,7 +84,7 @@ final class SyncScheduler {
       ) {
         self::$lastErrorMessage = __(
           'Cloudflare Account ID and List Name are required.',
-          Plugin::get_text_domain()
+          'greyrock-wordfence-cloudflare-synchroniser'
         );
 
         return false;
@@ -92,7 +92,7 @@ final class SyncScheduler {
     } elseif (empty($zone)) {
       self::$lastErrorMessage = __(
         'Cloudflare Zone ID is required.',
-        Plugin::get_text_domain()
+        'greyrock-wordfence-cloudflare-synchroniser'
       );
 
       return false;
@@ -145,7 +145,7 @@ final class SyncScheduler {
     foreach ($blocks as $block) {
       $ip = (string) ($block['ip'] ?? '');
       $reason = $block['reason']
-        ?? __('Unknown', Plugin::get_text_domain());
+        ?? __('Unknown', 'greyrock-wordfence-cloudflare-synchroniser');
       $expiration = (int) ($block['expirationUnix'] ?? 0);
       $is_permanent = !empty($block['permanent']);
 
@@ -226,7 +226,7 @@ final class SyncScheduler {
             'Wordfence historical WAF block: %d event',
             'Wordfence historical WAF block: %d events',
             $event_count,
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
           $event_count
         ),
@@ -292,7 +292,7 @@ final class SyncScheduler {
           /* translators: %d: number of failed IP addresses */
           __(
             '%d IP address could not be synchronized.',
-            Plugin::get_text_domain()
+            'greyrock-wordfence-cloudflare-synchroniser'
           ),
           count($failed)
         );

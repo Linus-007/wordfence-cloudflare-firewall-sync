@@ -3,33 +3,46 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 import zipfile
 from pathlib import Path
 
 
-PLUGIN_SLUG = "wordfence-cloudflare-firewall-sync"
-REQUIRED_FILES = (
-    f"{PLUGIN_SLUG}/index.php",
-    f"{PLUGIN_SLUG}/uninstall.php",
-)
+DEFAULT_PLUGIN_SLUG = "wordfence-cloudflare-firewall-sync"
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build and verify the WordPress plugin release ZIP."
+        description="Build and verify a WordPress plugin release ZIP."
     )
+
     parser.add_argument(
         "--source",
         default="src",
         help="Plugin source directory.",
     )
+
     parser.add_argument(
         "--output",
-        default=f"dist/{PLUGIN_SLUG}.zip",
+        default=(
+            "dist/"
+            "greyrock-wordfence-cloudflare-synchroniser.zip"
+        ),
         help="Release ZIP path.",
     )
+
+    parser.add_argument(
+        "--plugin-slug",
+        default=DEFAULT_PLUGIN_SLUG,
+        help="Top-level plugin directory name inside the ZIP.",
+    )
+
+    parser.add_argument(
+        "--readme",
+        default="readme.txt",
+        help="WordPress.org readme copied into the plugin directory.",
+    )
+
     return parser.parse_args()
 
 
@@ -44,9 +57,30 @@ def should_exclude(path: Path) -> bool:
     return any(part in excluded_names for part in path.parts)
 
 
-def build_zip(source: Path, output: Path) -> None:
+def build_zip(
+    source: Path,
+    output: Path,
+    plugin_slug: str,
+    readme: Path,
+) -> None:
     if not source.is_dir():
-        raise RuntimeError(f"Source directory does not exist: {source}")
+        raise RuntimeError(
+            f"Source directory does not exist: {source}"
+        )
+
+    if not readme.is_file():
+        raise RuntimeError(
+            f"WordPress readme does not exist: {readme}"
+        )
+
+    if (
+        not plugin_slug
+        or "/" in plugin_slug
+        or "\\" in plugin_slug
+    ):
+        raise RuntimeError(
+            f"Invalid plugin slug: {plugin_slug}"
+        )
 
     output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -59,8 +93,7 @@ def build_zip(source: Path, output: Path) -> None:
         compression=zipfile.ZIP_DEFLATED,
         compresslevel=9,
     ) as archive:
-        directory_entry = f"{PLUGIN_SLUG}/"
-        archive.writestr(directory_entry, "")
+        archive.writestr(f"{plugin_slug}/", "")
 
         for path in sorted(source.rglob("*")):
             relative_path = path.relative_to(source)
@@ -68,7 +101,7 @@ def build_zip(source: Path, output: Path) -> None:
             if should_exclude(relative_path):
                 continue
 
-            archive_path = Path(PLUGIN_SLUG) / relative_path
+            archive_path = Path(plugin_slug) / relative_path
             archive_name = archive_path.as_posix()
 
             if path.is_dir():
@@ -77,48 +110,55 @@ def build_zip(source: Path, output: Path) -> None:
 
             archive.write(path, archive_name)
 
+        archive.write(
+            readme,
+            f"{plugin_slug}/readme.txt",
+        )
 
-def verify_zip(output: Path) -> None:
+
+def verify_zip(
+    output: Path,
+    plugin_slug: str,
+) -> None:
     if not output.is_file():
-        raise RuntimeError(f"Release ZIP was not created: {output}")
+        raise RuntimeError(
+            f"Release ZIP was not created: {output}"
+        )
 
     if not zipfile.is_zipfile(output):
-        raise RuntimeError(f"Release file is not a valid ZIP: {output}")
+        raise RuntimeError(
+            f"Release file is not a valid ZIP: {output}"
+        )
+
+    required_files = (
+        f"{plugin_slug}/index.php",
+        f"{plugin_slug}/uninstall.php",
+        f"{plugin_slug}/readme.txt",
+    )
 
     with zipfile.ZipFile(output, mode="r") as archive:
         corrupt_file = archive.testzip()
 
         if corrupt_file is not None:
             raise RuntimeError(
-                f"Corrupt file detected in release ZIP: {corrupt_file}"
+                f"Corrupt file detected: {corrupt_file}"
             )
 
         names = archive.namelist()
 
-    for required_file in REQUIRED_FILES:
-        if required_file not in names:
-            raise RuntimeError(
-                f"Required plugin file is missing: {required_file}"
-            )
+        for required_file in required_files:
+            if required_file not in names:
+                raise RuntimeError(
+                    "Required plugin file is missing: "
+                    f"{required_file}"
+                )
 
-    invalid_root_entries = {
-        "index.php",
-        "uninstall.php",
-        "includes/",
-        "assets/",
-        "languages/",
-    }
-
-    for name in names:
-        if name in invalid_root_entries:
-            raise RuntimeError(
-                f"Plugin content was incorrectly placed at ZIP root: {name}"
-            )
-
-        if not name.startswith(f"{PLUGIN_SLUG}/"):
-            raise RuntimeError(
-                f"Unexpected ZIP entry outside plugin directory: {name}"
-            )
+        for name in names:
+            if not name.startswith(f"{plugin_slug}/"):
+                raise RuntimeError(
+                    "Unexpected ZIP entry outside plugin directory: "
+                    f"{name}"
+                )
 
 
 def print_contents(output: Path) -> None:
@@ -132,18 +172,27 @@ def main() -> int:
 
     source = Path(arguments.source).resolve()
     output = Path(arguments.output).resolve()
+    readme = Path(arguments.readme).resolve()
+    plugin_slug = arguments.plugin_slug
 
     try:
-        build_zip(source, output)
-        verify_zip(output)
+        build_zip(
+            source,
+            output,
+            plugin_slug,
+            readme,
+        )
+
+        verify_zip(
+            output,
+            plugin_slug,
+        )
     except RuntimeError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
-    size = output.stat().st_size
-
     print(f"Created: {output}")
-    print(f"Size: {size} bytes")
+    print(f"Size: {output.stat().st_size} bytes")
     print("Contents:")
     print_contents(output)
 
