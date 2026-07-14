@@ -93,13 +93,13 @@ git clone https://github.com/Linus-007/grey-rock-block-synchroniser-for-wordfenc
 Copy the contents of `src/` into:
 
 ```text
-wp-content/plugins/wordfence-cloudflare-firewall-sync/
+wp-content/plugins/grey-rock-block-synchroniser-for-wordfence-and-cloudflare/
 ```
 
 The installed directory should contain:
 
 ```text
-wordfence-cloudflare-firewall-sync/
+grey-rock-block-synchroniser-for-wordfence-and-cloudflare/
 ├── grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php
 ├── readme.txt
 ├── uninstall.php
@@ -112,9 +112,13 @@ wordfence-cloudflare-firewall-sync/
 
 When the plugin is network activated:
 
-- **Network Admin** manages the shared Cloudflare configuration.
+- **Network Admin** manages the shared Cloudflare configuration, scheduling method and synchronization interval.
 - **Synchronise Network Now** processes every site that inherits the Network Admin configuration.
-- Sites using independent site-specific settings are excluded from the network action.
+- `sync-network --due` and `sync-network --force` process only sites that inherit the Network Admin configuration.
+- Sites using independent site-specific settings are excluded from network synchronization and continue to use their own controls.
+- Saving Network Admin scheduling settings reschedules every inheriting site.
+- Selecting **External scheduler** or **Manual synchronization only** removes Grey Rock's synchronization WP-Cron event from every inheriting site.
+- Hourly cleanup remains scheduled separately from synchronization.
 - Each site retains its own **Synchronisation Log** and **Manual IP Block** pages.
 - Network Admin provides a combined **Synchronisation Log** containing recent records from all sites.
 - Manual Account List Management requires a reason when adding an address and stores that reason with the Cloudflare list item.
@@ -284,13 +288,13 @@ The plugin updates the account list once. Every Custom Rule that references the 
 Open:
 
 ```text
-WordPress Admin → Firewall Sync
+WordPress Admin → Grey Rock Block Synchroniser
 ```
 
 For multisite network settings:
 
 ```text
-Network Admin → Firewall Sync
+Network Admin → Grey Rock Block Synchroniser
 ```
 
 Complete the setup in this order:
@@ -298,15 +302,342 @@ Complete the setup in this order:
 1. Select **Zone Access Rules** or **Account IP List**.
 2. Enter the Cloudflare Account ID when using Account IP List mode.
 3. Paste the restricted Cloudflare API token.
-4. Enter any remaining identifiers required by the selected mode.
-4. In Account IP List mode, enter the actual Cloudflare List Name.
-5. Select the synchronisation interval.
-6. Save the settings.
-7. Select **Validate Saved Cloudflare Configuration**.
-8. Run a test block with an IP address that is not already intentionally blocked.
-9. Confirm the address was added and removed.
-10. Select **Sync Now**.
-11. Verify the resulting rule or list entry in Cloudflare.
+4. Enter the remaining identifiers required by the selected mode.
+5. In Account IP List mode, enter the actual Cloudflare List Name.
+6. Select **WordPress WP-Cron**, **External scheduler** or **Manual synchronization only**.
+7. Select the synchronization interval.
+8. Save the settings.
+9. Select **Validate Saved Cloudflare Configuration**.
+10. Run a test block with an IP address that is not already intentionally blocked.
+11. Confirm the address was added and removed.
+12. Select **Sync Now**.
+13. Verify the resulting rule or list entry in Cloudflare.
+
+## Scheduling
+
+Grey Rock separates the synchronization policy configured in WordPress from the mechanism that wakes the plugin.
+
+The GUI remains authoritative for the scheduling method and synchronization interval. Available intervals are:
+
+- every minute;
+- every 5 minutes;
+- every 15 minutes; and
+- every hour.
+
+### WordPress WP-Cron
+
+**WordPress WP-Cron** is the default and requires no server-level configuration.
+
+Grey Rock registers its synchronization event at the selected interval. WP-Cron is request-driven, so an event becomes eligible at the selected time but may run later when the site receives traffic or WordPress otherwise processes cron events.
+
+Selecting a one-minute interval does not guarantee execution on an exact minute boundary.
+
+### External scheduler
+
+**External scheduler** removes Grey Rock's synchronization WP-Cron event. A system scheduler then invokes a plugin-specific WP-CLI command.
+
+The plugin does not require Docker. WP-CLI can run against an ordinary WordPress installation, a multisite network, a managed-hosting cron facility or a containerized deployment.
+
+Single-site installation:
+
+```bash
+wp --path=/var/www/html \
+  grey-rock-block-synchroniser-for-wordfence-and-cloudflare \
+  sync-site --due
+```
+
+One selected site in a multisite network:
+
+```bash
+wp --path=/var/www/html \
+  --url=https://example.com \
+  grey-rock-block-synchroniser-for-wordfence-and-cloudflare \
+  sync-site --due
+```
+
+All multisite sites inheriting Network Admin settings:
+
+```bash
+wp --path=/var/www/html \
+  grey-rock-block-synchroniser-for-wordfence-and-cloudflare \
+  sync-network --due
+```
+
+Replace `/var/www/html` with the actual WordPress installation path.
+
+The external scheduler may invoke `--due` every minute regardless of the GUI interval. Grey Rock reads the saved interval and exits without synchronizing when the interval has not elapsed.
+
+A scheduler that runs less frequently than the GUI interval becomes the limiting interval.
+
+A skipped `--due` invocation exits successfully. For `sync-site`, WP-CLI reports that the site is not due or that External scheduler is not selected. For `sync-network`, the completion summary reports successful, not-due and disabled site counts.
+
+Add `--quiet` to unattended commands to suppress routine informational output.
+
+### Due-time behavior
+
+Grey Rock records the start of every synchronization attempt.
+
+This means:
+
+- a successful scheduled run resets the due interval;
+- a failed synchronization attempt also resets the due interval;
+- selecting **Sync Now** or **Synchronise Network Now** resets the due interval; and
+- a `--force` command resets the due interval.
+
+The next `--due` invocation waits until the selected GUI interval has elapsed since that recorded attempt.
+
+### Forced and manual synchronization
+
+The following commands run immediately and ignore both the scheduling method and the configured interval:
+
+```bash
+wp --path=/var/www/html \
+  grey-rock-block-synchroniser-for-wordfence-and-cloudflare \
+  sync-site --force
+```
+
+```bash
+wp --path=/var/www/html \
+  grey-rock-block-synchroniser-for-wordfence-and-cloudflare \
+  sync-network --force
+```
+
+These commands use the same synchronization services as **Sync Now** and **Synchronise Network Now**.
+
+### Manual synchronization only
+
+**Manual synchronization only** removes Grey Rock's synchronization WP-Cron event and disables automatic synchronization.
+
+The GUI synchronization buttons and `--force` commands remain available.
+
+### Synchronization locking
+
+Every site-level synchronization acquires an atomic WordPress option lock before processing Wordfence and Cloudflare data.
+
+The lock prevents a WP-Cron event, external scheduler, WP-CLI command or GUI action from running the same site's synchronization concurrently.
+
+An abandoned lock becomes stale after 15 minutes. A later synchronization attempt may then replace it.
+
+In multisite network synchronization, each site maintains its own lock and due-time record.
+
+### Cleanup scheduling
+
+Cleanup is separate from synchronization.
+
+Grey Rock keeps its cleanup event scheduled hourly in all three scheduling modes:
+
+- WordPress WP-Cron;
+- External scheduler; and
+- Manual synchronization only.
+
+Selecting External scheduler removes only Grey Rock's synchronization WP-Cron event. It does not disable the hourly cleanup event and does not disable WordPress cron globally.
+
+### Standard Linux systemd example
+
+The following complete units run multisite network synchronization every minute. The plugin still obeys the interval selected in the GUI.
+
+Determine the actual WP-CLI path first:
+
+```bash
+command -v wp
+```
+
+Example service file:
+
+`/etc/systemd/system/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.service`
+
+```ini
+[Unit]
+Description=Grey Rock Block Synchroniser for Wordfence and Cloudflare
+Documentation=https://github.com/Linus-007/grey-rock-block-synchroniser-for-wordfence-and-cloudflare
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/var/www/html/wp-config.php
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/html
+ExecStart=/usr/local/bin/wp --path=/var/www/html grey-rock-block-synchroniser-for-wordfence-and-cloudflare sync-network --due --quiet
+TimeoutStartSec=5min
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=grey-rock-block-synchroniser-for-wordfence-and-cloudflare
+```
+
+Replace `/usr/local/bin/wp`, `/var/www/html`, `www-data` and the group when the server uses different values.
+
+Example timer file:
+
+`/etc/systemd/system/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.timer`
+
+```ini
+[Unit]
+Description=Run Grey Rock Block Synchroniser every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=true
+Unit=grey-rock-block-synchroniser-for-wordfence-and-cloudflare.service
+
+[Install]
+WantedBy=timers.target
+```
+
+Validate and enable the units:
+
+```bash
+sudo systemd-analyze verify \
+  /etc/systemd/system/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.service \
+  /etc/systemd/system/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.timer
+
+sudo systemctl daemon-reload
+
+sudo systemctl enable --now \
+  grey-rock-block-synchroniser-for-wordfence-and-cloudflare.timer
+```
+
+Verify operation:
+
+```bash
+sudo systemctl list-timers \
+  grey-rock-block-synchroniser-for-wordfence-and-cloudflare.timer \
+  --all
+
+sudo systemctl status \
+  grey-rock-block-synchroniser-for-wordfence-and-cloudflare.timer
+
+sudo journalctl \
+  -u grey-rock-block-synchroniser-for-wordfence-and-cloudflare.service \
+  --since "10 minutes ago"
+```
+
+For a single-site installation, use the same complete service file but replace `sync-network` with `sync-site`.
+
+For one selected site in a multisite network, replace the service's `ExecStart` line with:
+
+```ini
+ExecStart=/usr/local/bin/wp --path=/var/www/html --url=https://example.com grey-rock-block-synchroniser-for-wordfence-and-cloudflare sync-site --due --quiet
+```
+
+### Traditional cron or hosting control-panel example
+
+A system crontab or hosting control panel can invoke the same deployment-neutral WP-CLI command.
+
+Multisite network:
+
+```cron
+* * * * * cd /var/www/html && /usr/local/bin/wp --path=/var/www/html grey-rock-block-synchroniser-for-wordfence-and-cloudflare sync-network --due --quiet
+```
+
+Single site:
+
+```cron
+* * * * * cd /var/www/html && /usr/local/bin/wp --path=/var/www/html grey-rock-block-synchroniser-for-wordfence-and-cloudflare sync-site --due --quiet
+```
+
+Do not configure both systemd and traditional cron for the same installation.
+
+### Optional Docker Compose wrapper
+
+Docker is not required by the plugin. A containerized installation may wrap the same WP-CLI command with Docker Compose.
+
+Example command:
+
+```bash
+/usr/bin/docker compose \
+  -f /srv/wordpress/compose/docker-compose.yml \
+  exec -T wordpress \
+  wp grey-rock-block-synchroniser-for-wordfence-and-cloudflare \
+  sync-network --due --quiet --allow-root
+```
+
+A complete Docker Compose systemd service example is:
+
+```ini
+[Unit]
+Description=Grey Rock Block Synchroniser for Wordfence and Cloudflare
+Documentation=https://github.com/Linus-007/grey-rock-block-synchroniser-for-wordfence-and-cloudflare
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+ConditionPathExists=/srv/wordpress/compose/docker-compose.yml
+
+[Service]
+Type=oneshot
+User=wordpress
+Group=wordpress
+SupplementaryGroups=docker
+WorkingDirectory=/srv/wordpress/compose
+ExecStart=/usr/bin/docker compose -f /srv/wordpress/compose/docker-compose.yml exec -T wordpress wp grey-rock-block-synchroniser-for-wordfence-and-cloudflare sync-network --due --quiet --allow-root
+TimeoutStartSec=5min
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=grey-rock-block-synchroniser-for-wordfence-and-cloudflare
+```
+
+Use the same complete timer file shown in the standard systemd example.
+
+Replace the example user, group, Compose path and service name with the values used by the deployment.
+
+### Switching scheduling methods safely
+
+To move from WP-Cron to an external scheduler:
+
+1. Create and test the external command manually.
+2. In Network Admin or Site Admin, select **External scheduler**.
+3. Save the settings.
+4. Confirm that `--due` runs successfully.
+5. Enable the system timer or cron job.
+
+To return to WP-Cron:
+
+1. Disable the system timer or remove the cron job.
+2. Select **WordPress WP-Cron** in the plugin settings.
+3. Select the required interval.
+4. Save the settings.
+5. Confirm that Grey Rock's synchronization event is scheduled again.
+
+To disable automatic synchronization completely:
+
+1. Disable any external system scheduler.
+2. Select **Manual synchronization only**.
+3. Save the settings.
+
+### Verifying the saved policy
+
+Display the saved network scheduling policy:
+
+```bash
+wp --path=/var/www/html eval '
+$options = get_site_option(
+  "firewall_sync_network_options",
+  []
+);
+
+echo "schedule_method="
+  . ($options["schedule_method"] ?? "wp_cron")
+  . PHP_EOL;
+
+echo "sync_interval="
+  . ($options["sync_interval"] ?? "60")
+  . PHP_EOL;
+'
+```
+
+List Grey Rock cron events for a site:
+
+```bash
+wp --path=/var/www/html \
+  --url=https://example.com \
+  cron event list \
+  --fields=hook,next_run_relative,recurrence
+```
+
+In External scheduler or Manual synchronization only mode, `firewall_sync_cron_event` should be absent. `firewall_sync_cleanup_event` should remain scheduled hourly.
 
 ## Testing the configuration
 

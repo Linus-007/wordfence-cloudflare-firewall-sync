@@ -11,6 +11,10 @@ final class Config {
   public const SOURCE_NETWORK = 'network';
   public const SOURCE_SITE = 'site';
 
+  public const SCHEDULER_WP_CRON = 'wp_cron';
+  public const SCHEDULER_EXTERNAL = 'external';
+  public const SCHEDULER_MANUAL = 'manual';
+
   /**
    * Return the network-level configuration.
    *
@@ -76,8 +80,7 @@ final class Config {
   }
 
   /**
-   * Return the settings that should be displayed in the current
-   * administrative context.
+   * Return the settings displayed in the current administrative context.
    */
   public static function get_admin_options(): array {
     if (is_multisite() && is_network_admin()) {
@@ -92,9 +95,12 @@ final class Config {
   }
 
   /**
-   * Sanitize Cloudflare configuration fields.
+   * Sanitize Cloudflare and scheduling configuration fields.
    */
-  public static function sanitize_options(array $input, bool $network = false): array {
+  public static function sanitize_options(
+    array $input,
+    bool $network = false
+  ): array {
     $output = [];
 
     $output['cloudflare_mode'] = in_array(
@@ -117,8 +123,29 @@ final class Config {
       );
     }
 
+    $schedule_method = (string) (
+      $input['schedule_method'] ?? self::SCHEDULER_WP_CRON
+    );
+
+    $output['schedule_method'] = in_array(
+      $schedule_method,
+      [
+        self::SCHEDULER_WP_CRON,
+        self::SCHEDULER_EXTERNAL,
+        self::SCHEDULER_MANUAL,
+      ],
+      true
+    )
+      ? $schedule_method
+      : self::SCHEDULER_WP_CRON;
+
     $interval = (int) ($input['sync_interval'] ?? 60);
-    $output['sync_interval'] = in_array($interval, [5, 15, 60], true)
+
+    $output['sync_interval'] = in_array(
+      $interval,
+      [1, 5, 15, 60],
+      true
+    )
       ? (string) $interval
       : '60';
 
@@ -200,8 +227,7 @@ final class Config {
     /*
      * Disabled fields are not included in an HTML form submission. Use a
      * previously stored site configuration when one exists. Otherwise,
-     * initialize the new site override from the network defaults that were
-     * displayed on the settings page.
+     * initialize the site override from the displayed network defaults.
      */
     $base = self::has_existing_site_configuration($existing)
       ? $existing
@@ -228,14 +254,51 @@ final class Config {
   }
 
   /**
-   * Return true when the current site is inheriting Network Admin settings.
+   * Return the validated scheduling method.
+   */
+  public static function get_schedule_method(?array $options = null): string {
+    $options = $options ?? self::get_effective_options();
+
+    $method = (string) (
+      $options['schedule_method'] ?? self::SCHEDULER_WP_CRON
+    );
+
+    return in_array(
+      $method,
+      [
+        self::SCHEDULER_WP_CRON,
+        self::SCHEDULER_EXTERNAL,
+        self::SCHEDULER_MANUAL,
+      ],
+      true
+    )
+      ? $method
+      : self::SCHEDULER_WP_CRON;
+  }
+
+  /**
+   * Return the validated synchronization interval in minutes.
+   */
+  public static function get_sync_interval_minutes(
+    ?array $options = null
+  ): int {
+    $options = $options ?? self::get_effective_options();
+    $minutes = (int) ($options['sync_interval'] ?? 60);
+
+    return in_array($minutes, [1, 5, 15, 60], true)
+      ? $minutes
+      : 60;
+  }
+
+  /**
+   * Return true when the current site inherits Network Admin settings.
    */
   public static function uses_network_options(): bool {
     return self::get_site_source() === self::SOURCE_NETWORK;
   }
 
   /**
-   * Remove settings that control inheritance rather than Cloudflare itself.
+   * Remove settings that control inheritance rather than synchronization.
    */
   private static function strip_control_fields(array $options): array {
     unset(
@@ -247,10 +310,11 @@ final class Config {
   }
 
   /**
-   * Detect settings from releases that predate multisite configuration
-   * inheritance.
+   * Detect settings from releases predating multisite inheritance.
    */
-  private static function has_existing_site_configuration(array $options): bool {
+  private static function has_existing_site_configuration(
+    array $options
+  ): bool {
     foreach ([
       'cloudflare_api_token',
       'cloudflare_zone_id',
@@ -258,6 +322,7 @@ final class Config {
       'cloudflare_list_id',
       'cloudflare_list_name',
       'cloudflare_mode',
+      'schedule_method',
       'sync_interval',
       'historical_lookback_hours',
       'historical_minimum_events',

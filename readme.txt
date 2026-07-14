@@ -4,7 +4,7 @@ Tags: wordfence, cloudflare, firewall, security, multisite
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.1.11
+Stable tag: 1.1.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,40 @@ Repeated events from the same address are deduplicated before synchronisation.
 
 Invalid, private and reserved IP addresses are rejected during historical-event processing.
 
+= Scheduling =
+
+Grey Rock supports three scheduling methods:
+
+* WordPress WP-Cron schedules synchronization inside WordPress.
+* External scheduler removes Grey Rock's synchronization WP-Cron event and permits a system scheduler to invoke WP-CLI.
+* Manual synchronization only disables automatic synchronization while retaining the GUI buttons and forced WP-CLI commands.
+
+Available intervals are every minute, every 5 minutes, every 15 minutes and hourly.
+
+WP-Cron is request-driven. Selecting every minute makes synchronization eligible every minute but does not guarantee execution at an exact minute boundary.
+
+External scheduling does not require Docker. An ordinary WordPress installation can use:
+
+`wp --path=/var/www/html grey-rock-block-synchroniser-for-wordfence-and-cloudflare sync-site --due`
+
+A multisite network can use:
+
+`wp --path=/var/www/html grey-rock-block-synchroniser-for-wordfence-and-cloudflare sync-network --due`
+
+`sync-network` processes only sites inheriting Network Admin settings. A selected multisite site can use `sync-site` with WP-CLI's `--url` parameter.
+
+An external scheduler may check every minute. The `--due` command reads the GUI interval and exits successfully without synchronizing when the interval has not elapsed or External scheduler is not selected.
+
+The GUI buttons and `--force` commands run immediately regardless of scheduling method or interval. Every attempt, including a manual or failed attempt, resets the due interval.
+
+A site-level atomic lock prevents overlapping synchronization. An abandoned lock becomes stale after 15 minutes.
+
+Selecting External scheduler or Manual synchronization only removes only Grey Rock's synchronization event. It does not disable WordPress cron globally.
+
+Cleanup is separate maintenance and remains scheduled hourly in all three modes.
+
+Complete systemd, traditional cron, hosting control-panel and optional Docker Compose examples are provided in the GitHub README.
+
 = Multisite support =
 
 When network activated:
@@ -112,7 +146,7 @@ This plugin connects to the Cloudflare API when an administrator:
 * Runs a diagnostic block test.
 * Manually adds or removes an IP address.
 * Runs synchronisation, cleanup or reconciliation.
-* Allows a scheduled synchronisation or cleanup event to run.
+* Allows a WP-Cron or external-scheduler synchronization, or an hourly cleanup event, to run.
 
 The Cloudflare API is required because the plugin's purpose is to create and remove Cloudflare firewall entries.
 
@@ -242,6 +276,38 @@ Yes. It supports shared Network Admin settings, optional site-specific overrides
 
 An inheriting site may share a Cloudflare destination with other sites. Its local log cannot determine whether another site still requires the same Cloudflare entry.
 
+= Does the every-minute interval run at an exact time? =
+
+Not necessarily when WordPress WP-Cron is selected. WP-Cron is request-driven and may run late. Use External scheduler with a reliable system scheduler when timing must not depend on WordPress traffic.
+
+= Is Docker required for external scheduling? =
+
+No. The plugin provides ordinary WP-CLI commands. Docker Compose is only an optional deployment-specific wrapper.
+
+= How does an external scheduler use the GUI interval? =
+
+The scheduler may invoke `sync-site --due` or `sync-network --due` every minute. Grey Rock reads the selected GUI interval and exits successfully without synchronizing until that interval has elapsed.
+
+= What is the difference between --due and --force? =
+
+`--due` works only with External scheduler and obeys the configured interval. `--force` runs immediately regardless of the scheduling method or interval.
+
+= What happens after a manual or failed synchronization attempt? =
+
+Grey Rock records the start of every attempt. The next `--due` invocation waits until the configured interval has elapsed, even when the previous attempt failed or was started manually.
+
+= How are overlapping runs prevented? =
+
+Each site acquires an atomic synchronization lock. An abandoned lock becomes stale after 15 minutes.
+
+= Does External scheduler disable all WordPress cron events? =
+
+No. It removes only Grey Rock's synchronization event. Hourly Grey Rock cleanup remains scheduled, and other WordPress cron events are unaffected.
+
+= How do I return to WordPress WP-Cron? =
+
+Disable the external system timer or cron job, select WordPress WP-Cron in Grey Rock settings, select the required interval and save the settings.
+
 = Does uninstalling the plugin remove Cloudflare entries? =
 
 No. Review and remove unwanted Cloudflare rules or list entries separately after uninstalling the plugin.
@@ -260,6 +326,16 @@ No.
 6. Configure a Cloudflare Custom Rule to block requests from addresses contained in the synchronised IP list.
 
 == Changelog ==
+
+= 1.1.12 =
+
+* Added an every-minute synchronization interval.
+* Added WordPress WP-Cron, external scheduler and manual-only scheduling modes.
+* Added plugin-specific WP-CLI commands for due and forced site or network synchronization.
+* Added synchronization due-time enforcement and overlap locking.
+* Separated hourly cleanup maintenance from the synchronization interval.
+* Centralized multisite network synchronization for the GUI and WP-CLI.
+* Added deployment-neutral scheduling documentation, including standard WP-CLI, systemd, traditional cron, hosting control-panel and optional Docker Compose examples.
 
 = 1.1.11 =
 

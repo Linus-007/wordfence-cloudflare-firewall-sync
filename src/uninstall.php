@@ -33,6 +33,7 @@ function grey_rock_block_synchroniser_for_wordfence_and_cloudflare_uninstall_sit
 
   delete_option('firewall_sync_options');
   delete_option('firewall_sync_last_run');
+  delete_option('firewall_sync_last_attempt_timestamp');
   delete_option('firewall_sync_is_running');
   delete_option('firewall_sync_version');
 
