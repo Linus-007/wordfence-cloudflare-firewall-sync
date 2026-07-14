@@ -29,6 +29,8 @@ final class SyncScheduler {
 
   private const LOCK_OPTION = 'firewall_sync_is_running';
   private const LOCK_TTL_SECONDS = 900;
+
+  private static string $lockOwnerToken = '';
   private const LAST_ATTEMPT_OPTION =
     'firewall_sync_last_attempt_timestamp';
 
@@ -229,54 +231,193 @@ final class SyncScheduler {
     }
   }
 
+  public static function is_locked(): bool {
+    $lock = self::normalize_lock(
+      get_option(self::LOCK_OPTION, null)
+    );
+
+    return (
+      $lock !== null
+      && !self::is_stale_lock($lock)
+    );
+  }
+
   private static function acquire_lock(): bool {
+    global $wpdb;
+
     $started_at = time();
+    $owner_token = wp_generate_uuid4();
+
+    $new_lock = [
+      'owner' => $owner_token,
+      'started_at' => $started_at,
+    ];
 
     if (
       add_option(
         self::LOCK_OPTION,
-        (string) $started_at,
+        $new_lock,
         '',
         false
       )
     ) {
+      self::$lockOwnerToken = $owner_token;
       return true;
     }
 
-    $existing_started_at = (int) get_option(
+    $existing_raw = get_option(
       self::LOCK_OPTION,
-      0
+      null
     );
+
+    $existing_lock = self::normalize_lock($existing_raw);
 
     if (
-      $existing_started_at <= 0
-      || ($started_at - $existing_started_at)
-        > self::LOCK_TTL_SECONDS
+      $existing_lock !== null
+      && !self::is_stale_lock($existing_lock)
     ) {
-      delete_option(self::LOCK_OPTION);
-
-      if (
-        add_option(
-          self::LOCK_OPTION,
-          (string) $started_at,
-          '',
-          false
-        )
-      ) {
-        return true;
-      }
+      self::set_already_running_error();
+      return false;
     }
 
-    self::$lastErrorMessage = __(
-      'Synchronization is already running.',
-      'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+    /*
+     * Replace the stale value only if it is still identical to the value
+     * read above. This prevents two processes from both taking ownership.
+     */
+    $updated = $wpdb->query(
+      $wpdb->prepare(
+        "UPDATE {$wpdb->options}
+         SET option_value = %s
+         WHERE option_name = %s
+           AND option_value = %s",
+        maybe_serialize($new_lock),
+        self::LOCK_OPTION,
+        maybe_serialize($existing_raw)
+      )
     );
 
+    if ($updated === 1) {
+      wp_cache_delete(self::LOCK_OPTION, 'options');
+      self::$lockOwnerToken = $owner_token;
+      return true;
+    }
+
+    /*
+     * The option may have disappeared between the read and atomic update.
+     * One final add_option() remains atomic because option_name is unique.
+     */
+    if (
+      add_option(
+        self::LOCK_OPTION,
+        $new_lock,
+        '',
+        false
+      )
+    ) {
+      self::$lockOwnerToken = $owner_token;
+      return true;
+    }
+
+    self::set_already_running_error();
     return false;
   }
 
   private static function release_lock(): void {
-    delete_option(self::LOCK_OPTION);
+    global $wpdb;
+
+    if (self::$lockOwnerToken === '') {
+      return;
+    }
+
+    $existing_raw = get_option(
+      self::LOCK_OPTION,
+      null
+    );
+
+    $existing_lock = self::normalize_lock($existing_raw);
+
+    if (
+      $existing_lock === null
+      || !hash_equals(
+        (string) ($existing_lock['owner'] ?? ''),
+        self::$lockOwnerToken
+      )
+    ) {
+      self::$lockOwnerToken = '';
+      return;
+    }
+
+    /*
+     * Delete only the exact lock value owned by this process. An older
+     * process therefore cannot delete a newer process's replacement lock.
+     */
+    $wpdb->query(
+      $wpdb->prepare(
+        "DELETE FROM {$wpdb->options}
+         WHERE option_name = %s
+           AND option_value = %s",
+        self::LOCK_OPTION,
+        maybe_serialize($existing_raw)
+      )
+    );
+
+    wp_cache_delete(self::LOCK_OPTION, 'options');
+    self::$lockOwnerToken = '';
+  }
+
+  /**
+   * Normalize both the new token lock and the legacy timestamp-only lock.
+   *
+   * @param mixed $raw_lock Raw option value.
+   * @return array{owner:string,started_at:int}|null
+   */
+  private static function normalize_lock($raw_lock): ?array {
+    if (is_array($raw_lock)) {
+      $owner = (string) ($raw_lock['owner'] ?? '');
+      $started_at = (int) ($raw_lock['started_at'] ?? 0);
+
+      if ($owner === '' || $started_at <= 0) {
+        return null;
+      }
+
+      return [
+        'owner' => $owner,
+        'started_at' => $started_at,
+      ];
+    }
+
+    /*
+     * Version 1.1.12 stored only a Unix timestamp. Treat it as a legacy
+     * lock so an active pre-upgrade process remains protected.
+     */
+    $legacy_started_at = (int) $raw_lock;
+
+    if ($legacy_started_at <= 0) {
+      return null;
+    }
+
+    return [
+      'owner' => 'legacy',
+      'started_at' => $legacy_started_at,
+    ];
+  }
+
+  /**
+   * @param array{owner:string,started_at:int} $lock
+   */
+  private static function is_stale_lock(array $lock): bool {
+    return (
+      $lock['started_at'] <= 0
+      || (time() - $lock['started_at'])
+        > self::LOCK_TTL_SECONDS
+    );
+  }
+
+  private static function set_already_running_error(): void {
+    self::$lastErrorMessage = __(
+      'Synchronization is already running.',
+      'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+    );
   }
 
   private static function execute_sync(): bool {
@@ -374,7 +515,7 @@ final class SyncScheduler {
 
       if (
         $ip === ''
-        || !filter_var($ip, FILTER_VALIDATE_IP)
+        || !IpValidator::validate_public_ip($ip)
         || (
           !$is_permanent
           && $expiration > 0

@@ -8,6 +8,7 @@ use WPCF\FirewallSync\Cloudflare\Client;
 use WPCF\FirewallSync\Config;
 use WPCF\FirewallSync\Plugin;
 use WPCF\FirewallSync\Services\BlockLogger;
+use WPCF\FirewallSync\Services\IpValidator;
 use WPCF\FirewallSync\Services\Reconciler;
 use WPCF\FirewallSync\Services\SyncScheduler;
 use WPCF\FirewallSync\Services\NetworkSynchronizer;
@@ -566,10 +567,10 @@ final class Fields {
       wp_unslash($_POST['firewall_sync_test_ip'] ?? '')
     );
 
-    if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+    if (!IpValidator::validate_public_ip($ip)) {
       self::redirect_with_message(
         $scope,
-        __('Enter a valid IPv4 or IPv6 address.', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
+        __('Enter a public IPv4 or IPv6 address.', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
         'error'
       );
     }
@@ -693,10 +694,10 @@ final class Fields {
       wp_unslash($_POST['firewall_sync_manual_list_ip'] ?? '')
     );
 
-    if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+    if (!IpValidator::validate_public_ip($ip)) {
       self::redirect_with_message(
         $scope,
-        __('Enter a valid IPv4 or IPv6 address.', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
+        __('Enter a public IPv4 or IPv6 address.', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
         'error'
       );
     }
@@ -1014,9 +1015,9 @@ final class Fields {
       wp_unslash($_POST['manual_reason'] ?? 'manual')
     );
 
-    if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+    if (!IpValidator::validate_public_ip($ip)) {
       self::redirect_manual_block(
-        __('Invalid IP address.', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
+        __('Invalid or non-public IP address.', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
         'error'
       );
     }

@@ -7,6 +7,7 @@ namespace WPCF\FirewallSync\Admin;
 use WPCF\FirewallSync\Config;
 use WPCF\FirewallSync\Plugin;
 use WPCF\FirewallSync\Services\BlockLogger;
+use WPCF\FirewallSync\Services\SyncScheduler;
 
 final class Settings {
   public static function register(): void {
@@ -519,7 +520,7 @@ final class Settings {
         </div>
       <?php else: ?>
         <?php
-        $sync_disabled = get_option('firewall_sync_is_running') ? 'disabled' : '';
+        $sync_disabled = SyncScheduler::is_locked() ? 'disabled' : '';
         $last_sync = get_option('firewall_sync_last_run');
         $last_sync_time = $last_sync
           ? date_i18n(

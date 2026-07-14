@@ -14,8 +14,8 @@ help:
 	  'Available targets:' \
 	  '  make validate' \
 	  '  make build' \
-	  '  make release VERSION=1.1.11' \
-	  '  make tag-release VERSION=1.1.11' \
+	  '  make release VERSION=1.2.0' \
+	  '  make tag-release VERSION=1.2.0' \
 	  '  make clean' \
 	  '  make pot'
 
@@ -41,7 +41,7 @@ validate:
 
 version-check:
 	@if [ -z "$(VERSION)" ]; then \
-	  echo "VERSION is required. Example: make release VERSION=1.1.11"; \
+	  echo "VERSION is required. Example: make release VERSION=1.2.0"; \
 	  exit 1; \
 	fi
 	@if ! printf '%s\n' "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \

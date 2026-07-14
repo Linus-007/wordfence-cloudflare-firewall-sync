@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WPCF\FirewallSync;
 
+use WPCF\FirewallSync\Services\CloudflareIdentifierValidator;
+
 final class Config {
   public const SITE_OPTION = 'firewall_sync_options';
   public const NETWORK_OPTION = 'firewall_sync_network_options';
@@ -111,17 +113,40 @@ final class Config {
       ? $input['cloudflare_mode']
       : 'zone_access_rules';
 
-    foreach ([
-      'cloudflare_api_token',
-      'cloudflare_zone_id',
-      'cloudflare_account_id',
-      'cloudflare_list_id',
-      'cloudflare_list_name',
-    ] as $field) {
-      $output[$field] = trim(
-        sanitize_text_field((string) ($input[$field] ?? ''))
+    $output['cloudflare_api_token'] =
+      CloudflareIdentifierValidator::normalize_api_token(
+        sanitize_text_field(
+          (string) ($input['cloudflare_api_token'] ?? '')
+        )
       );
-    }
+
+    $output['cloudflare_zone_id'] =
+      CloudflareIdentifierValidator::normalize_zone_id(
+        sanitize_text_field(
+          (string) ($input['cloudflare_zone_id'] ?? '')
+        )
+      );
+
+    $output['cloudflare_account_id'] =
+      CloudflareIdentifierValidator::normalize_account_id(
+        sanitize_text_field(
+          (string) ($input['cloudflare_account_id'] ?? '')
+        )
+      );
+
+    $output['cloudflare_list_id'] =
+      CloudflareIdentifierValidator::normalize_list_id(
+        sanitize_text_field(
+          (string) ($input['cloudflare_list_id'] ?? '')
+        )
+      );
+
+    $output['cloudflare_list_name'] =
+      CloudflareIdentifierValidator::normalize_list_name(
+        sanitize_text_field(
+          (string) ($input['cloudflare_list_name'] ?? '')
+        )
+      );
 
     $schedule_method = (string) (
       $input['schedule_method'] ?? self::SCHEDULER_WP_CRON

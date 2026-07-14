@@ -4,7 +4,7 @@ Tags: wordfence, cloudflare, firewall, security, multisite
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.1.12
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -327,6 +327,21 @@ No.
 
 == Changelog ==
 
+= 1.2.0 =
+
+* Hardened synchronization locking with unique ownership tokens, atomic stale-lock replacement and owner-only release.
+* Added centralized validation for publicly routable IPv4 and IPv6 addresses.
+* Added centralized validation and normalization for Cloudflare API tokens, Zone IDs, Account IDs, List IDs and List Names.
+* Rejected private, reserved, loopback, link-local, documentation, benchmarking, multicast and unspecified addresses.
+* Unified Cloudflare JSON parsing and required valid response envelopes with `success: true`.
+* Added strict Cloudflare response-result and pagination validation.
+* Corrected current-block retrieval so HTTP failures and malformed responses fail closed.
+* Limited Cloudflare response bodies to 1 MiB before JSON decoding.
+* Added explicit HTTPS transport settings, including TLS verification, a 30-second timeout, a three-redirect limit and unsafe-URL rejection.
+* Normalized and length-limited Cloudflare comments, access-rule notes and synchronization-log reasons.
+* Hardened Cloudflare identifiers returned by the API before using or caching them.
+* Audited all administrative actions for capability checks, action-specific nonces, sanitized input and safe redirects.
+
 = 1.1.12 =
 
 * Added an every-minute synchronization interval.
@@ -412,6 +427,6 @@ No.
 
 == Upgrade Notice ==
 
-= 1.1.9 =
+= 1.2.0 =
 
-Renames the plugin and technical identifiers to satisfy WordPress.org naming and plugin-structure requirements.
+Security-focused release that hardens synchronization locking, public-IP and Cloudflare credential validation, API response handling, HTTP transport and stored reason text.

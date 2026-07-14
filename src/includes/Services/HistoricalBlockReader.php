@@ -86,7 +86,7 @@ final class HistoricalBlockReader {
         (string) ($row['ip_hex'] ?? '')
       );
 
-      if ($ip === null || !self::is_public_ip($ip)) {
+      if ($ip === null || !IpValidator::validate_public_ip($ip)) {
         continue;
       }
 
@@ -140,14 +140,6 @@ final class HistoricalBlockReader {
     return filter_var($ip, FILTER_VALIDATE_IP)
       ? $ip
       : null;
-  }
-
-  private static function is_public_ip(string $ip): bool {
-    return filter_var(
-      $ip,
-      FILTER_VALIDATE_IP,
-      FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-    ) !== false;
   }
 
   private static function validated_lookback_hours(

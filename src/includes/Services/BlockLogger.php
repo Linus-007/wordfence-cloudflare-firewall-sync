@@ -17,6 +17,8 @@ final class BlockLogger {
   public const TABLE = 'wpcf_sync_blocks';
   public const MAX_FAILURES = 3;
 
+  private const MAX_REASON_LENGTH = 200;
+
   public static function create_table(): void {
     global $wpdb;
 
@@ -58,6 +60,7 @@ final class BlockLogger {
 
     $table = $wpdb->prefix . self::TABLE;
     $now = current_time('mysql');
+    $reason = self::normalize_reason($reason);
 
     $wpdb->query(
       $wpdb->prepare(
@@ -160,6 +163,7 @@ final class BlockLogger {
 
     $table = $wpdb->prefix . self::TABLE;
     $now = current_time('mysql');
+    $reason = self::normalize_reason($reason);
 
     $wpdb->query(
       $wpdb->prepare(
@@ -202,5 +206,43 @@ final class BlockLogger {
         self::MAX_FAILURES
       )
     );
+  }
+
+  /**
+   * Normalise text stored in the synchronization-state table.
+   */
+  private static function normalize_reason(string $reason): string {
+    $reason = preg_replace(
+      '/[\x00-\x1F\x7F]+/u',
+      ' ',
+      $reason
+    );
+
+    if (!is_string($reason)) {
+      return 'sync';
+    }
+
+    $reason = preg_replace('/\s+/u', ' ', $reason);
+
+    if (!is_string($reason)) {
+      return 'sync';
+    }
+
+    $reason = trim($reason);
+
+    if ($reason === '') {
+      return 'sync';
+    }
+
+    if (function_exists('mb_substr')) {
+      return mb_substr(
+        $reason,
+        0,
+        self::MAX_REASON_LENGTH,
+        'UTF-8'
+      );
+    }
+
+    return substr($reason, 0, self::MAX_REASON_LENGTH);
   }
 }

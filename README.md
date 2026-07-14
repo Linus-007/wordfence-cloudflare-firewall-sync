@@ -781,6 +781,30 @@ The complete external-service, privacy, retention and uninstall disclosures are 
 ## Release building
 
 
+## Changelog
+
+### 1.2.0
+
+- Hardened synchronization locking with unique ownership tokens, atomic stale-lock replacement and owner-only release.
+- Centralized publicly routable IPv4 and IPv6 validation across Wordfence, administration and Cloudflare operations.
+- Centralized validation and normalization for Cloudflare API tokens and resource identifiers.
+- Unified Cloudflare JSON parsing and required valid success envelopes, result structures and pagination data.
+- Corrected current-block retrieval so HTTP and response-shape failures fail closed.
+- Limited Cloudflare response bodies to 1 MiB before decoding.
+- Centralized Cloudflare HTTP transport policy with TLS verification, timeout, redirect and unsafe-URL controls.
+- Normalized and length-limited Cloudflare comments, access-rule notes and synchronization-log reasons.
+- Audited administrative actions for capabilities, nonces, sanitized request input and safe redirects.
+
+### 1.1.12
+
+- Added an every-minute synchronization interval.
+- Added WordPress WP-Cron, external scheduler and manual-only scheduling modes.
+- Added plugin-specific WP-CLI commands for due and forced site or network synchronization.
+- Added synchronization due-time enforcement and overlap locking.
+- Separated hourly cleanup maintenance from the synchronization interval.
+- Centralized multisite network synchronization for the GUI and WP-CLI.
+- Updated scheduling, WP-CLI and multisite documentation.
+
 ## Contributing
 
 Please:
