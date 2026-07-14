@@ -4,72 +4,282 @@ declare(strict_types=1);
 
 namespace WPCF\FirewallSync\Services;
 
-
 /*
- * Direct database access is intentional for synchronization-state
- * queries against the plugin's own operational log table. These
- * values must remain current and therefore are not object-cached.
+ * Direct database access is intentional for synchronization-state queries
+ * against the plugin's own operational log table. These values must remain
+ * current and therefore are not object-cached.
  *
  * phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
  * phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
  * phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
  */
+
 use WPCF\FirewallSync\Cloudflare\Client;
 use WPCF\FirewallSync\Config;
-use WPCF\FirewallSync\Plugin;
 
 final class SyncScheduler {
+  public const RESULT_SUCCESS = 'success';
+  public const RESULT_FAILURE = 'failure';
+  public const RESULT_NOT_DUE = 'not_due';
+  public const RESULT_DISABLED = 'disabled';
+
   private const HOOK = 'firewall_sync_cron_event';
-  private const DELETE_BATCH_SIZE = 100;
   private const CLEANUP_HOOK = 'firewall_sync_cleanup_event';
+  private const DELETE_BATCH_SIZE = 100;
+
+  private const LOCK_OPTION = 'firewall_sync_is_running';
+  private const LOCK_TTL_SECONDS = 900;
+  private const LAST_ATTEMPT_OPTION =
+    'firewall_sync_last_attempt_timestamp';
 
   private static string $lastErrorMessage = '';
 
   public static function register(): void {
-    add_action(self::HOOK, [self::class, 'run_now']);
-    add_action(self::CLEANUP_HOOK, [self::class, 'run_cleanup']);
-    add_filter('cron_schedules', [self::class, 'custom_intervals']);
+    add_action(
+      self::HOOK,
+      [self::class, 'run_scheduled_sync']
+    );
+
+    add_action(
+      self::CLEANUP_HOOK,
+      [self::class, 'run_cleanup']
+    );
+
+    add_filter(
+      'cron_schedules',
+      [self::class, 'custom_intervals']
+    );
 
     self::schedule_events();
   }
 
   /**
-   * Create missing synchronization and cleanup cron events.
+   * Create or correct the synchronization and cleanup schedules.
+   *
+   * Synchronization follows the selected method and interval. Cleanup is
+   * separate maintenance and remains hourly in every scheduling mode.
    */
   private static function schedule_events(): void {
     $options = Config::get_effective_options();
+    $method = Config::get_schedule_method($options);
 
-    $minutes = max(5, (int) ($options['sync_interval'] ?? 60));
-    $interval_key = $minutes === 5
-      ? 'every_5_minutes'
-      : ($minutes === 15 ? 'every_15_minutes' : 'hourly');
-
-    if (!wp_next_scheduled(self::HOOK)) {
-      wp_schedule_event(time(), $interval_key, self::HOOK);
+    if ($method === Config::SCHEDULER_WP_CRON) {
+      self::ensure_event(
+        self::HOOK,
+        self::interval_key(
+          Config::get_sync_interval_minutes($options)
+        )
+      );
+    } else {
+      wp_clear_scheduled_hook(self::HOOK);
     }
 
-    if (!wp_next_scheduled(self::CLEANUP_HOOK)) {
-      wp_schedule_event(time(), $interval_key, self::CLEANUP_HOOK);
+    self::ensure_event(self::CLEANUP_HOOK, 'hourly');
+  }
+
+  private static function ensure_event(
+    string $hook,
+    string $recurrence
+  ): void {
+    $next = wp_next_scheduled($hook);
+    $current_recurrence = wp_get_schedule($hook);
+
+    if (
+      $next !== false
+      && $current_recurrence !== $recurrence
+    ) {
+      wp_clear_scheduled_hook($hook);
+      $next = false;
+    }
+
+    if ($next === false) {
+      wp_schedule_event(time(), $recurrence, $hook);
     }
   }
 
+  private static function interval_key(int $minutes): string {
+    return match ($minutes) {
+      1 => 'every_minute',
+      5 => 'every_5_minutes',
+      15 => 'every_15_minutes',
+      default => 'hourly',
+    };
+  }
+
   public static function custom_intervals(array $schedules): array {
+    $schedules['every_minute'] = [
+      'interval' => MINUTE_IN_SECONDS,
+      'display' => __(
+        'Every Minute',
+        'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+      ),
+    ];
+
     $schedules['every_5_minutes'] = [
-      'interval' => 300,
-      'display' => __('Every 5 Minutes', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
+      'interval' => 5 * MINUTE_IN_SECONDS,
+      'display' => __(
+        'Every 5 Minutes',
+        'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+      ),
     ];
 
     $schedules['every_15_minutes'] = [
-      'interval' => 900,
-      'display' => __('Every 15 Minutes', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
+      'interval' => 15 * MINUTE_IN_SECONDS,
+      'display' => __(
+        'Every 15 Minutes',
+        'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+      ),
     ];
 
     return $schedules;
   }
 
+  /**
+   * Run a WP-Cron synchronization only when WP-Cron is selected.
+   */
+  public static function run_scheduled_sync(): void {
+    self::run_if_due(Config::SCHEDULER_WP_CRON);
+  }
+
+  /**
+   * Run only when the required scheduling method is selected and the
+   * configured synchronization interval has elapsed.
+   */
+  public static function run_if_due(
+    string $required_method = Config::SCHEDULER_EXTERNAL
+  ): string {
+    self::$lastErrorMessage = '';
+
+    $options = Config::get_effective_options();
+
+    if (Config::get_schedule_method($options) !== $required_method) {
+      return self::RESULT_DISABLED;
+    }
+
+    if (!self::is_due($options)) {
+      return self::RESULT_NOT_DUE;
+    }
+
+    return self::run_now()
+      ? self::RESULT_SUCCESS
+      : self::RESULT_FAILURE;
+  }
+
+  public static function is_due(?array $options = null): bool {
+    $options = $options ?? Config::get_effective_options();
+    $last_attempt = self::get_last_attempt_timestamp();
+
+    if ($last_attempt <= 0) {
+      return true;
+    }
+
+    $interval = (
+      Config::get_sync_interval_minutes($options)
+      * MINUTE_IN_SECONDS
+    );
+
+    return time() >= ($last_attempt + $interval);
+  }
+
+  public static function seconds_until_due(
+    ?array $options = null
+  ): int {
+    $options = $options ?? Config::get_effective_options();
+    $last_attempt = self::get_last_attempt_timestamp();
+
+    if ($last_attempt <= 0) {
+      return 0;
+    }
+
+    $interval = (
+      Config::get_sync_interval_minutes($options)
+      * MINUTE_IN_SECONDS
+    );
+
+    return max(
+      0,
+      ($last_attempt + $interval) - time()
+    );
+  }
+
+  public static function get_last_attempt_timestamp(): int {
+    return (int) get_option(self::LAST_ATTEMPT_OPTION, 0);
+  }
+
+  /**
+   * Force an immediate synchronization regardless of scheduling mode.
+   */
   public static function run_now(): bool {
     self::$lastErrorMessage = '';
 
+    if (!self::acquire_lock()) {
+      return false;
+    }
+
+    update_option(
+      self::LAST_ATTEMPT_OPTION,
+      time(),
+      false
+    );
+
+    try {
+      return self::execute_sync();
+    } finally {
+      self::release_lock();
+    }
+  }
+
+  private static function acquire_lock(): bool {
+    $started_at = time();
+
+    if (
+      add_option(
+        self::LOCK_OPTION,
+        (string) $started_at,
+        '',
+        false
+      )
+    ) {
+      return true;
+    }
+
+    $existing_started_at = (int) get_option(
+      self::LOCK_OPTION,
+      0
+    );
+
+    if (
+      $existing_started_at <= 0
+      || ($started_at - $existing_started_at)
+        > self::LOCK_TTL_SECONDS
+    ) {
+      delete_option(self::LOCK_OPTION);
+
+      if (
+        add_option(
+          self::LOCK_OPTION,
+          (string) $started_at,
+          '',
+          false
+        )
+      ) {
+        return true;
+      }
+    }
+
+    self::$lastErrorMessage = __(
+      'Synchronization is already running.',
+      'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+    );
+
+    return false;
+  }
+
+  private static function release_lock(): void {
+    delete_option(self::LOCK_OPTION);
+  }
+
+  private static function execute_sync(): bool {
     $options = Config::get_effective_options();
     $token = $options['cloudflare_api_token'] ?? '';
     $zone = $options['cloudflare_zone_id'] ?? '';
@@ -119,7 +329,8 @@ final class SyncScheduler {
       );
 
       if ($resolved_list_id === null) {
-        self::$lastErrorMessage = $client->get_last_error_message();
+        self::$lastErrorMessage =
+          $client->get_last_error_message();
 
         return false;
       }
@@ -129,9 +340,8 @@ final class SyncScheduler {
 
     /*
      * Wordfence has changed the internal wfBlock API between releases.
-     * Some versions define wfBlock without providing getBlocks(). Treat
-     * active-block retrieval as optional so historical wp_wfhits records
-     * can still be synchronized without causing a fatal error.
+     * Active-block retrieval is optional so historical wp_wfhits records
+     * remain available without causing a fatal error.
      */
     $blocks = [];
 
@@ -147,22 +357,29 @@ final class SyncScheduler {
     }
 
     /*
-     * Key the batch by IP so active Wordfence blocks and historical WAF
-     * events cannot create duplicate Cloudflare operations.
+     * Key the batch by IP so active blocks and historical WAF events cannot
+     * create duplicate Cloudflare operations.
      */
     $batch_by_ip = [];
 
     foreach ($blocks as $block) {
       $ip = (string) ($block['ip'] ?? '');
       $reason = $block['reason']
-        ?? __('Unknown', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare');
+        ?? __(
+          'Unknown',
+          'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+        );
       $expiration = (int) ($block['expirationUnix'] ?? 0);
       $is_permanent = !empty($block['permanent']);
 
       if (
         $ip === ''
         || !filter_var($ip, FILTER_VALIDATE_IP)
-        || (!$is_permanent && $expiration > 0 && time() > $expiration)
+        || (
+          !$is_permanent
+          && $expiration > 0
+          && time() > $expiration
+        )
         || BlockLogger::has_synced($ip)
         || BlockLogger::is_blacklisted($ip)
       ) {
@@ -204,7 +421,6 @@ final class SyncScheduler {
       $event_count = (int) (
         $historical_block['event_count'] ?? 0
       );
-
       $latest_event = (int) (
         $historical_block['latest_event'] ?? 0
       );
@@ -223,7 +439,9 @@ final class SyncScheduler {
       if ($latest_event > 0) {
         $expires_at = wp_date(
           'Y-m-d H:i:s',
-          $latest_event + ($lookback_hours * HOUR_IN_SECONDS),
+          $latest_event + (
+            $lookback_hours * HOUR_IN_SECONDS
+          ),
           wp_timezone()
         );
       }
@@ -231,7 +449,7 @@ final class SyncScheduler {
       $batch_by_ip[$ip] = [
         'ip' => $ip,
         'reason' => sprintf(
-          /* translators: %d: number of Wordfence blocked WAF events */
+          /* translators: %d: number of blocked WAF events */
           _n(
             'Wordfence historical WAF block: %d event',
             'Wordfence historical WAF block: %d events',
@@ -290,8 +508,6 @@ final class SyncScheduler {
       'firewall_sync_last_run',
       current_time('mysql')
     );
-
-    delete_option('firewall_sync_is_running');
 
     if (!empty($failed)) {
       $client_error = $client->get_last_error_message();
@@ -372,7 +588,6 @@ final class SyncScheduler {
 
     $table = $wpdb->prefix . BlockLogger::TABLE;
     $current_time = current_time('mysql');
-
     $last_id = 0;
 
     do {
@@ -415,10 +630,8 @@ final class SyncScheduler {
           : $client->delete_block($ip);
 
         /*
-         * Retain the ownership record when Cloudflare deletion fails. A
-         * later cleanup run can retry instead of losing track of the entry.
-         * Cursor-based pagination prevents a failed row from being selected
-         * repeatedly during the same cleanup invocation.
+         * Retain the ownership record when deletion fails so a later cleanup
+         * can retry instead of losing track of the Cloudflare entry.
          */
         if ($deleted) {
           $wpdb->delete(
@@ -432,7 +645,7 @@ final class SyncScheduler {
   }
 
   /**
-   * Replace existing schedules using the currently effective interval.
+   * Replace schedules using the currently effective configuration.
    */
   public static function reschedule(): void {
     self::deactivate();

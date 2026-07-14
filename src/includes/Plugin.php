@@ -6,8 +6,8 @@ namespace WPCF\FirewallSync;
 
 use WPCF\FirewallSync\Admin\Settings;
 use WPCF\FirewallSync\Admin\Fields;
+use WPCF\FirewallSync\CLI\Commands;
 use WPCF\FirewallSync\Services\SyncScheduler;
-use WPCF\FirewallSync\Services\BlockLogger;
 use WPCF\FirewallSync\Services\MigrationManager;
 
 final class Plugin {
@@ -22,12 +22,22 @@ final class Plugin {
     self::register_multisite_hooks();
     self::load_admin();
     self::load_services();
+    self::load_cli();
   }
 
   public static function get_version(): string {
     if (!isset(self::$VERSION)) {
-      $plugin_file = plugin_dir_path(__DIR__ . '/../grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php') . 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php';
-      $plugin_data = get_file_data($plugin_file, ['Version' => 'Version']);
+      $plugin_file = plugin_dir_path(
+        __DIR__
+        . '/../grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php'
+      )
+        . 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php';
+
+      $plugin_data = get_file_data(
+        $plugin_file,
+        ['Version' => 'Version']
+      );
+
       self::$VERSION = $plugin_data['Version'] ?? '0.0.0';
     }
 
@@ -36,8 +46,17 @@ final class Plugin {
 
   public static function get_text_domain(): string {
     if (!isset(self::$TEXTDOMAIN)) {
-      $plugin_file = plugin_dir_path(__DIR__ . '/../grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php') . 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php';
-      $plugin_data = get_file_data($plugin_file, ['Text Domain' => 'Text Domain']);
+      $plugin_file = plugin_dir_path(
+        __DIR__
+        . '/../grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php'
+      )
+        . 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php';
+
+      $plugin_data = get_file_data(
+        $plugin_file,
+        ['Text Domain' => 'Text Domain']
+      );
+
       self::$TEXTDOMAIN = $plugin_data['Text Domain'];
     }
 
@@ -50,11 +69,23 @@ final class Plugin {
     }
 
     if (!defined('WPCF_FS_PLUGIN_DIR')) {
-      define('WPCF_FS_PLUGIN_DIR', plugin_dir_path(__DIR__ . '/../grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php'));
+      define(
+        'WPCF_FS_PLUGIN_DIR',
+        plugin_dir_path(
+          __DIR__
+          . '/../grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php'
+        )
+      );
     }
 
     if (!defined('WPCF_FS_PLUGIN_URL')) {
-      define('WPCF_FS_PLUGIN_URL', plugin_dir_url(__DIR__ . '/../grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php'));
+      define(
+        'WPCF_FS_PLUGIN_URL',
+        plugin_dir_url(
+          __DIR__
+          . '/../grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php'
+        )
+      );
     }
   }
 
@@ -76,10 +107,6 @@ final class Plugin {
 
   /**
    * Initialize plugin data and schedules for a newly created network site.
-   *
-   * This runs only when the plugin is active across the network. A plugin
-   * activated separately on individual sites should not initialize every
-   * new site automatically.
    */
   public static function initialize_new_site(
     \WP_Site $new_site,
@@ -99,9 +126,7 @@ final class Plugin {
   }
 
   /**
-   * Run database and option migrations when the installed plugin version
-   * changes. WordPress does not run activation hooks during ordinary plugin
-   * updates, so upgrade migrations must also be checked during initialization.
+   * Run migrations when the installed plugin version changes.
    */
   private static function maybe_run_upgrade(): void {
     if (is_multisite() && self::is_network_active()) {
@@ -163,10 +188,14 @@ final class Plugin {
     }
 
     $plugin_basename = plugin_basename(
-      WPCF_FS_PLUGIN_DIR . 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php'
+      WPCF_FS_PLUGIN_DIR
+      . 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php'
     );
 
-    return array_key_exists($plugin_basename, $active_plugins);
+    return array_key_exists(
+      $plugin_basename,
+      $active_plugins
+    );
   }
 
   private static function load_admin(): void {
@@ -178,6 +207,18 @@ final class Plugin {
 
   private static function load_services(): void {
     SyncScheduler::register();
+  }
+
+  private static function load_cli(): void {
+    if (
+      !defined('WP_CLI')
+      || !WP_CLI
+      || !class_exists('\WP_CLI')
+    ) {
+      return;
+    }
+
+    Commands::register();
   }
 
   public static function activate(bool $network_wide = false): void {
@@ -207,17 +248,24 @@ final class Plugin {
 
   public static function run_site_activation(): void {
     $stored_version = get_option('firewall_sync_version');
-    $stored_version = is_string($stored_version) ? $stored_version : null;
+    $stored_version = is_string($stored_version)
+      ? $stored_version
+      : null;
 
     if ($stored_version !== self::get_version()) {
       MigrationManager::run($stored_version);
-      update_option('firewall_sync_version', self::get_version());
+      update_option(
+        'firewall_sync_version',
+        self::get_version()
+      );
     }
 
     SyncScheduler::register();
   }
 
-  public static function deactivate(bool $network_wide = false): void {
+  public static function deactivate(
+    bool $network_wide = false
+  ): void {
     if (is_multisite() && $network_wide) {
       foreach (get_sites(['fields' => 'ids']) as $blog_id) {
         switch_to_blog((int) $blog_id);

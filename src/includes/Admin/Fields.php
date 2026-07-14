@@ -10,6 +10,7 @@ use WPCF\FirewallSync\Plugin;
 use WPCF\FirewallSync\Services\BlockLogger;
 use WPCF\FirewallSync\Services\Reconciler;
 use WPCF\FirewallSync\Services\SyncScheduler;
+use WPCF\FirewallSync\Services\NetworkSynchronizer;
 
 final class Fields {
   public static function register(): void {
@@ -102,6 +103,8 @@ final class Fields {
       __('Cloudflare Zone ID', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
       __('Required for Zone Access Rules mode', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare')
     );
+
+    self::add_scheduling_method_field();
 
     self::add_sync_interval_field();
     self::add_historical_lookback_field();
@@ -343,22 +346,98 @@ final class Fields {
     );
   }
 
+  private static function add_scheduling_method_field(): void {
+    add_settings_field(
+      'schedule_method',
+      __(
+        'Scheduling method',
+        'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+      ),
+      static function (): void {
+        $options = Config::get_admin_options();
+        $value = Config::get_schedule_method($options);
+        $disabled = self::configuration_fields_disabled();
+
+        printf(
+          '<select name="firewall_sync_options[schedule_method]" %s>',
+          disabled($disabled, true, false)
+        );
+
+        foreach ([
+          Config::SCHEDULER_WP_CRON => __(
+            'WordPress WP-Cron',
+            'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+          ),
+          Config::SCHEDULER_EXTERNAL => __(
+            'External scheduler',
+            'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+          ),
+          Config::SCHEDULER_MANUAL => __(
+            'Manual synchronization only',
+            'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+          ),
+        ] as $option_value => $label) {
+          printf(
+            '<option value="%1$s" %2$s>%3$s</option>',
+            esc_attr($option_value),
+            selected($value, $option_value, false),
+            esc_html($label)
+          );
+        }
+
+        echo '</select>';
+
+        $cli_subcommand = (
+          is_multisite() && is_network_admin()
+        )
+          ? 'sync-network'
+          : 'sync-site';
+
+        echo '<p class="description">';
+        echo esc_html__(
+          'WP-Cron schedules synchronization inside WordPress and may run late on a quiet site. External scheduler disables the plugin synchronization cron and expects the following command to check whether synchronization is due:',
+          'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+        );
+        echo ' <code>';
+        echo esc_html(
+          'wp grey-rock-block-synchroniser-for-wordfence-and-cloudflare '
+          . $cli_subcommand
+          . ' --due'
+        );
+        echo '</code>. ';
+        echo esc_html__(
+          'Manual synchronization only disables automatic synchronization. Manual buttons and the --force command remain available. Hourly cleanup maintenance continues in every mode.',
+          'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+        );
+        echo '</p>';
+      },
+      'firewall-sync-settings',
+      'firewall_sync_main_section'
+    );
+  }
+
   private static function add_sync_interval_field(): void {
     add_settings_field(
       'sync_interval',
-      __('Sync Interval', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
+      __(
+        'Sync Interval',
+        'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+      ),
       static function (): void {
         $options = Config::get_admin_options();
         $value = (string) ($options['sync_interval'] ?? '60');
         $disabled = self::configuration_fields_disabled();
 
         printf(
-          '<select id="sync_interval" name="firewall_sync_options[sync_interval]"%1$s>
-            <option value="5"%2$s>%3$s</option>
-            <option value="15"%4$s>%5$s</option>
-            <option value="60"%6$s>%7$s</option>
+          '<select name="firewall_sync_options[sync_interval]" %1$s>
+            <option value="1" %2$s>%3$s</option>
+            <option value="5" %4$s>%5$s</option>
+            <option value="15" %6$s>%7$s</option>
+            <option value="60" %8$s>%9$s</option>
           </select>',
           disabled($disabled, true, false),
+          selected($value, '1', false),
+          esc_html__('Every minute', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
           selected($value, '5', false),
           esc_html__('Every 5 minutes', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'),
           selected($value, '15', false),
@@ -366,6 +445,13 @@ final class Fields {
           selected($value, '60', false),
           esc_html__('Every hour', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare')
         );
+
+        echo '<p class="description">';
+        echo esc_html__(
+          'This interval is the synchronization policy. An external scheduler may check every minute; Grey Rock runs only when the selected interval has elapsed. A scheduler that checks less often becomes the limiting interval.',
+          'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
+        );
+        echo '</p>';
       },
       'firewall-sync-settings',
       'firewall_sync_main_section'
@@ -764,48 +850,9 @@ final class Fields {
       'firewall_sync_network_sync_now_nonce'
     );
 
-    $successful_sites = 0;
-    $failed_sites = [];
-    $processed_sites = 0;
+    $summary = NetworkSynchronizer::run(false);
 
-    foreach (get_sites(['fields' => 'ids']) as $blog_id) {
-      switch_to_blog((int) $blog_id);
-
-      try {
-        /*
-         * Network synchronization applies only to sites inheriting the
-         * Network Admin configuration. Sites with independent settings
-         * continue to use their own site-level controls and schedules.
-         */
-        if (!Config::uses_network_options()) {
-          continue;
-        }
-
-        $processed_sites++;
-
-        if (SyncScheduler::run_now()) {
-          $successful_sites++;
-          continue;
-        }
-
-        $site_name = get_bloginfo('name');
-        $site_url = home_url('/');
-        $error = SyncScheduler::get_last_error_message();
-
-        $failed_sites[] = sprintf(
-          '%1$s (%2$s): %3$s',
-          $site_name !== '' ? $site_name : $site_url,
-          $site_url,
-          $error !== ''
-            ? $error
-            : __('Synchronization failed.', 'grey-rock-block-synchroniser-for-wordfence-and-cloudflare')
-        );
-      } finally {
-        restore_current_blog();
-      }
-    }
-
-    if ($processed_sites === 0) {
+    if ($summary['processed'] === 0) {
       self::redirect_with_message(
         'network',
         __(
@@ -816,16 +863,27 @@ final class Fields {
       );
     }
 
-    if (!empty($failed_sites)) {
+    if (!empty($summary['failed'])) {
+      $failed_sites = [];
+
+      foreach ($summary['failed'] as $failure) {
+        $failed_sites[] = sprintf(
+          '%1$s (%2$s): %3$s',
+          $failure['site_name'],
+          $failure['site_url'],
+          $failure['error']
+        );
+      }
+
       self::redirect_with_message(
         'network',
         sprintf(
-          /* translators: 1: successful site count, 2: failed site details */
+          /* translators: 1: successful site count, 2: failed sites */
           __(
             'Network synchronization completed for %1$d site(s). Failures: %2$s',
             'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
           ),
-          $successful_sites,
+          $summary['successful'],
           implode(' | ', $failed_sites)
         ),
         'error'
@@ -840,7 +898,7 @@ final class Fields {
           'Network synchronization completed successfully for %d site(s).',
           'grey-rock-block-synchroniser-for-wordfence-and-cloudflare'
         ),
-        $successful_sites
+        $summary['successful']
       ),
       'updated'
     );
