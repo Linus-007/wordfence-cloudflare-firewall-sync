@@ -5,17 +5,25 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the leading v
+        required: true
+        type: string
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build:
-    name: Validate and Create Release ZIP
+  release:
+    name: Validate, Build and Publish Release
     runs-on: ubuntu-latest
 
     env:
-      PLUGIN_SLUG: wordfence-cloudflare-firewall-sync
       RELEASE_ZIP: dist/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.zip
 
     steps:
@@ -25,51 +33,40 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.1'
           coverage: none
 
-      - name: Validate PHP syntax
+      - name: Resolve release version
+        id: version
         shell: bash
         run: |
-          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="${{ inputs.version }}"
+          fi
 
-          find src -type f -name '*.php' -print0 \
-            | xargs -0 -n1 php -l
-
-      - name: Validate release version
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-
-          PLUGIN_VERSION="$(
-            sed -nE \
-              's/^[[:space:]]*\*[[:space:]]Version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p' \
-              src/index.php \
-              | head -n 1
-          )"
-
-          if [[ -z "${PLUGIN_VERSION}" ]]; then
-            echo "Could not read the plugin version from src/index.php."
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release version: ${version}"
             exit 1
           fi
 
-          if [[ "${TAG_VERSION}" != "${PLUGIN_VERSION}" ]]; then
-            echo "Version mismatch:"
-            echo "  Git tag:       ${TAG_VERSION}"
-            echo "  Plugin header: ${PLUGIN_VERSION}"
-            exit 1
-          fi
+          echo "value=${version}" >> "${GITHUB_OUTPUT}"
 
-      - name: Build and verify WordPress plugin ZIP
-        run: |
-          python3 scripts/build-release.py \
-            --source src \
-            --output "${RELEASE_ZIP}"
+      - name: Validate and build release package
+        run: make release VERSION="${{ steps.version.outputs.value }}"
+
+      - name: Generate SHA-256 checksum
+        run: sha256sum "${RELEASE_ZIP}" > "${RELEASE_ZIP}.sha256"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.zip
+          tag_name: v${{ steps.version.outputs.value }}
+          target_commitish: ${{ github.sha }}
+          name: Grey Rock Block Synchroniser for Wordfence and Cloudflare ${{ steps.version.outputs.value }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.zip
+            dist/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.zip.sha256

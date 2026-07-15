@@ -3,21 +3,22 @@ PLUGIN_ENTRY := src/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.ph
 RELEASE_DIR := dist
 RELEASE_ZIP := $(RELEASE_DIR)/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.zip
 BUILD_SCRIPT := scripts/build-release.py
-GIT_REMOTE := fork
+GIT_REMOTE ?= fork
 PHP ?= php
 PYTHON ?= python3
 
-.PHONY: help validate version-check build release tag-release clean pot
+.PHONY: help validate metadata-check version-check build release tag-release clean pot
 
 help:
 	@printf '%s\n' \
-	  'Available targets:' \
-	  '  make validate' \
-	  '  make build' \
-	  '  make release VERSION=1.2.0' \
-	  '  make tag-release VERSION=1.2.0' \
-	  '  make clean' \
-	  '  make pot'
+		'Available targets:' \
+		'  make validate' \
+		'  make metadata-check' \
+		'  make build' \
+		'  make release VERSION=x.y.z' \
+		'  make tag-release VERSION=x.y.z' \
+		'  make clean' \
+		'  make pot'
 
 validate:
 	@echo "Validating PHP syntax..."
@@ -32,52 +33,60 @@ validate:
 	@grep -q '^== Privacy ==$$' readme.txt
 	@echo "Checking for inline script tags..."
 	@if grep -RIn '<script' src --include='*.php'; then \
-	  echo "Inline script tag found."; \
-	  exit 1; \
+		echo "Inline script tag found."; \
+		exit 1; \
 	fi
 	@echo "Checking repository whitespace..."
 	@git diff --check
 	@echo "Validation passed."
 
-version-check:
-	@if [ -z "$(VERSION)" ]; then \
-	  echo "VERSION is required. Example: make release VERSION=1.2.0"; \
-	  exit 1; \
-	fi
-	@if ! printf '%s\n' "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \
-	  echo "Invalid VERSION: $(VERSION)"; \
-	  exit 1; \
-	fi
+metadata-check:
 	@PLUGIN_VERSION="$$(sed -nE 's/^[[:space:]]*\*[[:space:]]Version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*$$/\1/p' "$(PLUGIN_ENTRY)" | head -n 1)"; \
 	STABLE_TAG="$$(sed -nE 's/^Stable tag:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*$$/\1/p' readme.txt | head -n 1)"; \
-	if [ "$${PLUGIN_VERSION}" != "$(VERSION)" ]; then \
-	  echo "Plugin version mismatch: $${PLUGIN_VERSION} != $(VERSION)"; \
-	  exit 1; \
+	if [ -z "$${PLUGIN_VERSION}" ] || [ -z "$${STABLE_TAG}" ]; then \
+		echo "Could not read plugin version or Stable Tag."; \
+		exit 1; \
 	fi; \
-	if [ "$${STABLE_TAG}" != "$(VERSION)" ]; then \
-	  echo "Stable tag mismatch: $${STABLE_TAG} != $(VERSION)"; \
-	  exit 1; \
+	if [ "$${PLUGIN_VERSION}" != "$${STABLE_TAG}" ]; then \
+		echo "Metadata mismatch: plugin=$${PLUGIN_VERSION} stable-tag=$${STABLE_TAG}"; \
+		exit 1; \
+	fi; \
+	echo "Metadata version: $${PLUGIN_VERSION}"
+
+version-check: metadata-check
+	@if [ -z "$(VERSION)" ]; then \
+		echo "VERSION is required. Example: make release VERSION=x.y.z"; \
+		exit 1; \
+	fi
+	@if ! printf '%s\n' "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		echo "Invalid VERSION: $(VERSION)"; \
+		exit 1; \
+	fi
+	@PLUGIN_VERSION="$$(sed -nE 's/^[[:space:]]*\*[[:space:]]Version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*$$/\1/p' "$(PLUGIN_ENTRY)" | head -n 1)"; \
+	if [ "$${PLUGIN_VERSION}" != "$(VERSION)" ]; then \
+		echo "Release version mismatch: $${PLUGIN_VERSION} != $(VERSION)"; \
+		exit 1; \
 	fi
 
-build: validate clean
+build: validate metadata-check clean
 	@echo "Building release..."
 	@$(PYTHON) "$(BUILD_SCRIPT)" \
-	  --source src \
-	  --readme readme.txt \
-	  --plugin-slug "$(PLUGIN_SLUG)" \
-	  --output "$(RELEASE_ZIP)"
+		--source src \
+		--readme readme.txt \
+		--plugin-slug "$(PLUGIN_SLUG)" \
+		--output "$(RELEASE_ZIP)"
 
 release: version-check build
 	@echo "Release ZIP: $(RELEASE_ZIP)"
 
-tag-release: version-check validate
+tag-release: release
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
-	  echo "The working tree or staging area contains uncommitted changes."; \
-	  exit 1; \
+		echo "The working tree or staging area contains uncommitted changes."; \
+		exit 1; \
 	fi
 	@if git rev-parse "v$(VERSION)" >/dev/null 2>&1; then \
-	  echo "Tag v$(VERSION) already exists."; \
-	  exit 1; \
+		echo "Tag v$(VERSION) already exists."; \
+		exit 1; \
 	fi
 	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
 	@git push "$(GIT_REMOTE)" "v$(VERSION)"
@@ -90,7 +99,7 @@ clean:
 
 pot:
 	@wp i18n make-pot \
-	  src \
-	  src/languages/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.pot \
-	  --domain=grey-rock-block-synchroniser-for-wordfence-and-cloudflare \
-	  --allow-root
+		src \
+		src/languages/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.pot \
+		--domain=grey-rock-block-synchroniser-for-wordfence-and-cloudflare \
+		--allow-root

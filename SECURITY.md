@@ -6,8 +6,8 @@ Security fixes are provided for the current release of Grey Rock Block Synchroni
 
 | Version | Supported |
 |---|---|
-| 1.1.x | Yes |
-| 1.0.x and earlier | No |
+| 1.2.x | Yes |
+| 1.1.x and earlier | No |
 
 Users should upgrade to the latest published release before reporting an issue that may already have been corrected.
 

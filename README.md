@@ -2,7 +2,7 @@
 
 Grey Rock Block Synchroniser for Wordfence and Cloudflare synchronises IP addresses blocked by Wordfence with Cloudflare so unwanted traffic can be stopped at Cloudflare's network edge before it reaches the WordPress server.
 
-![Version](https://img.shields.io/badge/version-1.1.11-blue)
+![Version](https://img.shields.io/badge/version-1.2.1-blue)
 ![Tested with WordPress 7.0.1](https://img.shields.io/badge/WordPress-tested%20with%207.0.1-blueviolet)
 ![Licence](https://img.shields.io/badge/licence-GPLv2-blue)
 
@@ -14,15 +14,14 @@ Grey Rock Block Synchroniser for Wordfence and Cloudflare synchronises IP addres
 
 The name *Grey Rock* reflects the defensive principle of remaining unresponsive and unrewarding to hostile or manipulative behaviour. Automated attackers similarly depend on finding systems that respond predictably or expose useful weaknesses. The plugin applies that concept by moving Wordfence block intelligence to Cloudflare's network edge.
 
-The existing technical identifiers are intentionally retained for compatibility:
+The public package uses these technical identifiers:
 
-- plugin directory: `wordfence-cloudflare-firewall-sync`;
-- main plugin file: `index.php`;
+- plugin directory: `grey-rock-block-synchroniser-for-wordfence-and-cloudflare`;
+- main plugin file: `grey-rock-block-synchroniser-for-wordfence-and-cloudflare.php`;
 - GitHub repository: `grey-rock-block-synchroniser-for-wordfence-and-cloudflare`;
-- release ZIP: `grey-rock-block-synchroniser-for-wordfence-and-cloudflare.zip`;
-- WordPress option names, hooks and database table names.
+- release ZIP: `grey-rock-block-synchroniser-for-wordfence-and-cloudflare.zip`.
 
-Retaining these identifiers allows WordPress to recognise an upgrade as the same installed plugin rather than a different plugin.
+Existing WordPress option names, hooks, database table names and the `WPCF\FirewallSync` PHP namespace remain unchanged for backwards compatibility.
 
 ## What the plugin does
 
@@ -780,8 +779,34 @@ The complete external-service, privacy, retention and uninstall disclosures are 
 
 ## Release building
 
+The repository Makefile is the authoritative interface for validation, version checking, package creation and release tagging.
+
+Validate the repository:
+
+    make validate
+
+Build and verify the release ZIP:
+
+    make release VERSION=x.y.z
+
+Create and push the annotated release tag only after the release build succeeds:
+
+    make tag-release VERSION=x.y.z
+
+The generated release file is:
+
+    dist/grey-rock-block-synchroniser-for-wordfence-and-cloudflare.zip
 
 ## Changelog
+
+### 1.2.1
+
+- Corrected GitHub release automation to use the authoritative plugin entry point and Makefile release process.
+- Added continuous integration across PHP 8.1, 8.2, 8.3 and 8.4.
+- Corrected repository documentation for the plugin directory, main plugin file and release process.
+- Updated the security policy to identify 1.2.x as the supported release series.
+- Updated release commands so the release ZIP is built and verified before a release tag is created.
+- Made no changes to synchronisation, Wordfence or Cloudflare runtime behaviour.
 
 ### 1.2.0
 

@@ -4,7 +4,7 @@ Tags: wordfence, cloudflare, firewall, security, multisite
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -327,6 +327,15 @@ No.
 
 == Changelog ==
 
+= 1.2.1 =
+
+* Corrected GitHub release automation to use the authoritative plugin entry point and Makefile release process.
+* Added continuous integration across PHP 8.1, 8.2, 8.3 and 8.4.
+* Corrected repository documentation for the plugin directory, main plugin file and release process.
+* Updated the security policy to identify 1.2.x as the supported release series.
+* Updated release commands so the release ZIP is built and verified before a release tag is created.
+* No synchronisation, Wordfence or Cloudflare runtime behaviour changed.
+
 = 1.2.0 =
 
 * Hardened synchronization locking with unique ownership tokens, atomic stale-lock replacement and owner-only release.
@@ -426,6 +435,10 @@ No.
 * Updated Grey Rock branding and release packaging.
 
 == Upgrade Notice ==
+
+= 1.2.1 =
+
+Maintenance release correcting release automation, continuous integration, repository documentation and supported-version metadata. Runtime synchronisation behaviour is unchanged.
 
 = 1.2.0 =
 
